@@ -23,6 +23,24 @@ export interface ProjectStyleMeta {
   summary?: string;
 }
 
+/** Анализ структуры сценария (хук, тело, CTA и т.д.) */
+export interface ScriptStructureAnalysis {
+  hookDescription?: string;
+  hookDuration?: string;
+  bodyPhases?: string[];
+  ctaType?: string;
+  avgLengthSeconds?: number;
+  specialFeatures?: string[];
+}
+
+/** Метаданные обучающего примера */
+export interface TrainingExample {
+  url?: string;
+  title?: string;
+  viralMultiplier?: number;
+  scriptLength?: number;
+}
+
 /** Один стиль сценария в проекте (может быть несколько) */
 export interface ProjectStyle {
   id: string;
@@ -30,6 +48,10 @@ export interface ProjectStyle {
   prompt: string;
   meta?: ProjectStyleMeta;
   examplesCount?: number;
+  trainingMode?: 'reels' | 'scripts';
+  preferredFormat?: 'short' | 'long';
+  structureAnalysis?: ScriptStructureAnalysis;
+  trainingExamples?: TrainingExample[];
 }
 
 export interface Project {

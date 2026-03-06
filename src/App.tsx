@@ -4,6 +4,7 @@ import { LandingPage } from './components/LandingPage';
 import { Dashboard, getDisplayName } from './components/Dashboard';
 import { OnboardingModal } from './components/OnboardingModal';
 import { History } from './components/History';
+import { AIScriptwriter } from './components/AIScriptwriter';
 import { ProfilePage } from './components/ProfilePage';
 import { IncomingVideosDrawer } from './components/sidebar/IncomingVideosDrawer';
 import { SearchPanel, HIDE_SEARCH_BY_WORD } from './components/ui/SearchPanel';
@@ -30,7 +31,7 @@ import { cn } from './utils/cn';
 import { Toaster, toast } from 'sonner';
 
 
-type ViewMode = 'dashboard' | 'workspace' | 'canvas' | 'history' | 'profile';
+type ViewMode = 'dashboard' | 'workspace' | 'canvas' | 'history' | 'profile' | 'scriptwriter';
 type SearchTab = 'search' | 'link' | 'radar';
 
 // Цвета для проектов
@@ -375,7 +376,7 @@ function AppContent() {
     if (typeof window === 'undefined') return 'dashboard';
     try {
       const v = localStorage.getItem('app_view_mode');
-      if (v === 'dashboard' || v === 'workspace' || v === 'canvas' || v === 'history' || v === 'profile') return v;
+      if (v === 'dashboard' || v === 'workspace' || v === 'canvas' || v === 'history' || v === 'profile' || v === 'scriptwriter') return v;
     } catch { /* ignore */ }
     return 'dashboard';
   });
@@ -654,6 +655,12 @@ function AppContent() {
                   />
                 )}
                 <SidebarLink
+                  icon={<Sparkles className="w-4 h-4" strokeWidth={2.5} />}
+                  label="ИИ-сценарист"
+                  onClick={() => setViewMode('scriptwriter')}
+                  isActive={viewMode === 'scriptwriter'}
+                />
+                <SidebarLink
                   icon={<Clock className="w-4 h-4" strokeWidth={2.5} />}
                   label="История"
                   onClick={() => setViewMode('history')}
@@ -782,6 +789,7 @@ function AppContent() {
           />
         )}
         {viewMode === 'workspace' && <Workspace />}
+        {viewMode === 'scriptwriter' && <AIScriptwriter />}
         {viewMode === 'history' && <History />}
         {viewMode === 'profile' && <ProfilePage />}
       </div>
