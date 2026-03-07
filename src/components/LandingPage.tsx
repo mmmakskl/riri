@@ -250,7 +250,7 @@ export function LandingPage() {
                               >
                                 @ririai_bot
                               </a>
-                              {' '}/start — и нажми «Получить код»
+                              {' '}/start - и нажми «Получить код»
                             </p>
                           </div>
                         </div>

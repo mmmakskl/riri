@@ -498,7 +498,7 @@ export function AIScriptwriter() {
         setGenHooks(data.hooks);
         setHookTexts(data.hooks.map((h: HookVariant) => h.text));
         setSelectedHookIdx(0);
-        addMsg('riri', 'Готово! Вот 5 вариантов хука — выбери, отредактируй или попроси перегенерировать.');
+        addMsg('riri', 'Готово! Вот 5 вариантов хука - выбери, отредактируй или попроси перегенерировать.');
         setGenStep('hooks');
         await autoSaveDraft({ step: 'hooks', hooks: data.hooks, hookTexts: data.hooks.map((h: HookVariant) => h.text) });
       } else { toast.error('Ошибка генерации хуков'); }

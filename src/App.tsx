@@ -879,7 +879,7 @@ function App() {
             <img src="/riri-logo.png" alt="Riri AI" className="w-full h-full object-contain" />
           </div>
           <p className="text-slate-500 text-sm font-medium">Проверка сессии...</p>
-          <p className="text-slate-400 text-xs">Если долго — обновите страницу</p>
+          <p className="text-slate-400 text-xs">Если долго - обновите страницу</p>
         </div>
       </div>
     );

@@ -60,7 +60,7 @@ const GRADIENT_CARDS = [
     id: 'link',
     title: 'Найти ролик по ссылке',
     accent: 'по ссылке',
-    subtitle: 'Вставь ссылку на Instagram — получи данные и сохрани',
+    subtitle: 'Вставь ссылку на Instagram - получи данные и сохрани',
     icon: Link,
     gradient: 'from-[#7aa2ea] via-[#6d92da] to-[#5977bf]',
     cta: 'Открыть →',

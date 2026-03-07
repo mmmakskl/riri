@@ -142,7 +142,7 @@ function parseDate(dateValue?: string | number): Date | null {
 
 function formatDate(dateValue?: string | number): string {
   const date = parseDate(dateValue);
-  if (!date || isNaN(date.getTime())) return '—';
+  if (!date || isNaN(date.getTime())) return '-';
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -462,7 +462,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
         if (transcribeCost != null) await deduct(transcribeCost);
         setLocalTranscriptId(transcriptId);
         setTranscriptStatus('processing');
-        toast.success('Транскрибация запущена', { description: 'Можно уйти — результат подгрузится сам' });
+        toast.success('Транскрибация запущена', { description: 'Можно уйти - результат подгрузится сам' });
       } else {
         setTranscriptStatus('error');
         toast.error('Ошибка запуска транскрибации');
@@ -1784,7 +1784,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
                     type="button"
                     onClick={() => setShowChoiceModal(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-medium"
-                    title="Дать обратную связь — промт дообучится"
+                    title="Дать обратную связь - промт дообучится"
                   >
                     Что не так сделал?
                   </button>
@@ -2141,7 +2141,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
                 onClick={() => { setShowChoiceModal(false); setShowFeedbackModal(true); }}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                <span className="font-medium">Написать текстом</span> — что не так и что отлично
+                <span className="font-medium">Написать текстом</span> - что не так и что отлично
               </button>
               <button
                 type="button"
@@ -2155,7 +2155,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
                 }}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                <span className="font-medium">Сам допилю сценарий</span> — отредактировать сценарий ИИ, нейросеть дообучится на ваших правках
+                <span className="font-medium">Сам допилю сценарий</span> - отредактировать сценарий ИИ, нейросеть дообучится на ваших правках
               </button>
             </div>
             <button type="button" onClick={() => setShowChoiceModal(false)} className="mt-4 w-full py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">
@@ -2203,7 +2203,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
             <div className="p-4 border-b border-slate-100">
               <h3 className="font-semibold text-slate-800">Сценарий ИИ-помощник → ваш идеальный</h3>
               <p className="text-slate-500 text-sm mt-1">
-                Слева — переключайте вкладки (исходник, перевод, сценарий ИИ). Справа — ваш идеальный сценарий. Промт дообучится на ваших правках.
+                Слева - переключайте вкладки (исходник, перевод, сценарий ИИ). Справа - ваш идеальный сценарий. Промт дообучится на ваших правках.
               </p>
             </div>
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-4 p-4 min-h-0">
@@ -2227,10 +2227,10 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
                 </div>
                 <pre className="flex-1 min-h-[200px] p-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 overflow-auto whitespace-pre-wrap font-sans">
                   {editScriptLeftTab === 'original'
-                    ? (transcript || '—')
+                    ? (transcript || '-')
                     : editScriptLeftTab === 'translation'
-                    ? (translation || '—')
-                    : (scriptAiForRefine || '—')}
+                    ? (translation || '-')
+                    : (scriptAiForRefine || '-')}
                 </pre>
               </div>
               <div className="flex-1 flex flex-col min-h-0 gap-2">

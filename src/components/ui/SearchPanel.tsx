@@ -692,7 +692,7 @@ export function SearchPanel({ isOpen, onClose, initialTab = DEFAULT_TAB, current
     
     setLinkLoading(true);
     setLinkPreview(null);
-    toast.info('Добавляю...', { description: 'Можно закрыть — сохранится в фоне' });
+    toast.info('Добавляю...', { description: 'Можно закрыть - сохранится в фоне' });
     try {
       // Если это профиль (без /reel/ или /p/) — уже определили isProfileLink и profileMatch выше
       if (isProfileLink && profileMatch) {
@@ -1342,7 +1342,7 @@ const match = linkPreview.url.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
                 {currentProjectId && (
                   <div className="mb-5 p-4 rounded-card-xl bg-white/72 backdrop-blur-glass border border-white/60 shadow-glass-sm">
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      <span className="font-semibold text-slate-700">Как это работает:</span> Я автоматически добавляю все видео из этих профилей в папку «Все видео» проекта «{currentProjectName}». При обновлении — новые видео добавятся, а статистика старых обновится.
+                      <span className="font-semibold text-slate-700">Как это работает:</span> Я автоматически добавляю все видео из этих профилей в папку «Все видео» проекта «{currentProjectName}». При обновлении - новые видео добавятся, а статистика старых обновится.
                     </p>
                   </div>
                 )}
@@ -1510,7 +1510,7 @@ const match = linkPreview.url.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
                   <div className="text-center py-12">
                     <Radar className="w-14 h-14 text-slate-300 mx-auto mb-4" />
                     <p className="text-slate-500 text-sm mb-1">Радар для «{currentProjectName}» пока пуст</p>
-                    <p className="text-slate-400 text-xs">Добавь Instagram профили — я буду автоматически собирать видео</p>
+                    <p className="text-slate-400 text-xs">Добавь Instagram профили - я буду автоматически собирать видео</p>
                   </div>
                 )}
               </GlassCardStatic>
@@ -1631,7 +1631,7 @@ const match = linkPreview.url.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
                             viewCount={reel.view_count}
                             likeCount={reel.like_count}
                             commentCount={reel.comment_count}
-                            date={dateText || '—'}
+                            date={dateText || '-'}
                             viralCoef={finalViralCoef}
                             viralMultiplier={viralMult}
                             onClick={() => setSelectedVideo(reel)}
@@ -1944,14 +1944,14 @@ const match = linkPreview.url.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
                                 "bg-black/40 text-white/70"
                               )}>
                                 <Sparkles className="w-2.5 h-2.5" />
-                                <span className="text-[10px] font-bold">{viralCoef > 0 ? viralCoef : '—'}</span>
+                                <span className="text-[10px] font-bold">{viralCoef > 0 ? viralCoef : '-'}</span>
                               </div>
                             </div>
                             
                             {/* Date badge - always show */}
                             <div className="absolute top-3 right-3 z-10">
                               <div className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-semibold shadow-lg">
-                                {dateText || '—'}
+                                {dateText || '-'}
                               </div>
                             </div>
                               
@@ -2203,7 +2203,7 @@ const match = linkPreview.url.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
                         caption={captionText}
                         viewCount={reel.view_count}
                         likeCount={reel.like_count}
-                        date={dateText || '—'}
+                        date={dateText || '-'}
                         viralCoef={viralCoef}
                         onClick={() => !isMenuOpen && setSelectedVideo(reel)}
                         onDragStart={(e) => handleDragStart(e, reel)}
@@ -2305,7 +2305,7 @@ const match = linkPreview.url.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
                             "bg-black/40 text-white/90 border-white/20"
                           )}>
                             <Sparkles className="w-4 h-4" />
-                            <span className="font-sans font-bold">{viralCoef || '—'}</span>
+                            <span className="font-sans font-bold">{viralCoef || '-'}</span>
                           </div>
                         </div>
                       );

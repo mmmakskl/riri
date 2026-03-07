@@ -213,7 +213,7 @@ export const VideoGradientCard = ({
                 transition={{ delay: 0.1 }}
               >
                 <Sparkles className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" strokeWidth={2} />
-                <span className="text-[10px] md:text-xs font-semibold whitespace-nowrap tabular-nums">{viralCoef > 0 ? Math.round(viralCoef) : '—'}</span>
+                <span className="text-[10px] md:text-xs font-semibold whitespace-nowrap tabular-nums">{viralCoef > 0 ? Math.round(viralCoef) : '-'}</span>
               </motion.div>
               
               {/* Viral multiplier badge (отдельно рядом) */}

@@ -279,7 +279,7 @@ export function getViralMultiplierLabel(multiplier: number | null): string {
   if (multiplier >= 3) return '⚡ Отличный залёт';
   if (multiplier >= 2) return '📈 Хороший залёт';
   if (multiplier >= 1.5) return '✨ Выше среднего';
-  if (multiplier >= 1) return '— Норма';
+  if (multiplier >= 1) return '- Норма';
   return '📉 Ниже среднего';
 }
 

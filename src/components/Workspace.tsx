@@ -1593,7 +1593,7 @@ export function Workspace(_props?: WorkspaceProps) {
                       </div>
                       <div>
                         <h1 className="text-xl md:text-2xl font-bold text-slate-800">Карусели</h1>
-                        <p className="text-slate-500 text-xs md:text-sm">Посты с несколькими фото — транскрипт по слайдам (Gemini)</p>
+                        <p className="text-slate-500 text-xs md:text-sm">Посты с несколькими фото - транскрипт по слайдам (Gemini)</p>
                       </div>
                     </div>
                     {/* Папки — только мобильные */}
@@ -1653,7 +1653,7 @@ export function Workspace(_props?: WorkspaceProps) {
                                 toast.success('Карусель добавлена');
                               }
                             } else if (data.success && !data.is_carousel) {
-                              toast.error('Это не карусель — один пост. Добавляй посты с несколькими фото.');
+                              toast.error('Это не карусель - один пост. Добавляй посты с несколькими фото.');
                             } else {
                               toast.error(data.error || 'Не удалось загрузить пост. Проверьте ссылку.');
                             }
@@ -1709,7 +1709,7 @@ export function Workspace(_props?: WorkspaceProps) {
                     </div>
                     <h3 className="text-lg font-medium text-slate-800 mb-1">Пока каруселей нет</h3>
                     <p className="text-slate-500 text-sm max-w-sm mb-4">
-                      Вставь ссылку на пост с каруселью (несколько фото) выше и нажми «Добавить». Транскрипт по слайдам — через Gemini.
+                      Вставь ссылку на пост с каруселью (несколько фото) выше и нажми «Добавить». Транскрипт по слайдам - через Gemini.
                     </p>
                   </div>
                 ) : carouselsForFeed.length === 0 ? (

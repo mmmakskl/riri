@@ -182,7 +182,7 @@ export function History() {
                       caption={captionText}
                       viewCount={reel.view_count}
                       likeCount={reel.like_count}
-                      date={dateText || '—'}
+                      date={dateText || '-'}
                       viralCoef={viralCoef}
                       onAdd={() => handleAddToInbox(reel)}
                     />
@@ -361,7 +361,7 @@ export function History() {
                         caption={video.title}
                         viewCount={videoData.view_count}
                         likeCount={videoData.like_count}
-                        date={dateText || '—'}
+                        date={dateText || '-'}
                         viralCoef={viralCoef}
                         videoId={!String(video.id).startsWith('local-') ? video.id : undefined}
                         shortcode={video.url?.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/)?.[1]}

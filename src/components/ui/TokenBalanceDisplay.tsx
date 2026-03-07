@@ -74,7 +74,7 @@ export function TokenBalanceDisplay({ variant = 'compact', className }: TokenBal
 
         {/* Число баланса */}
         {loading ? (
-          <span className={cn('text-slate-400', isCompact ? 'text-sm' : 'text-lg')}>—</span>
+          <span className={cn('text-slate-400', isCompact ? 'text-sm' : 'text-lg')}>-</span>
         ) : (
           <motion.span
             key={balance}

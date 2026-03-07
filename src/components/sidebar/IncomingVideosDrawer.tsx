@@ -107,7 +107,7 @@ function VideoCard({
               )}
             >
               <TrendingUp className="w-2.5 h-2.5" />
-              <span className="text-[10px] font-bold">{viralCoef > 0 ? viralCoef : '—'}</span>
+              <span className="text-[10px] font-bold">{viralCoef > 0 ? viralCoef : '-'}</span>
             </div>
           </div>
         </div>
