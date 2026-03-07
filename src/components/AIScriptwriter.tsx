@@ -769,9 +769,32 @@ export function AIScriptwriter() {
               <h1 className="text-lg font-bold text-slate-800 font-heading tracking-tight">Riri · ИИ-сценарист</h1>
             </div>
           </div>
-          <div className="flex gap-1 p-1 rounded-xl bg-slate-100/80 mb-3">
+          <div
+            className="flex gap-1 p-1 mb-3 rounded-2xl"
+            style={{
+              background: 'rgba(255,255,255,0.72)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.6)',
+              boxShadow: '0 2px 8px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.8)',
+            }}
+          >
             {(['chat', 'styles', 'drafts'] as Tab[]).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={cn('flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all min-h-[36px] touch-manipulation', activeTab === tab ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700')}>
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'flex-1 py-2 px-2 rounded-xl text-xs font-medium transition-all min-h-[36px] touch-manipulation',
+                  activeTab === tab
+                    ? 'text-slate-800'
+                    : 'text-slate-500 hover:text-slate-700'
+                )}
+                style={activeTab === tab ? {
+                  background: 'rgba(255,255,255,0.92)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.05)',
+                  border: '1px solid rgba(255,255,255,0.7)',
+                } : {}}
+              >
                 {tab === 'chat' ? 'Чат' : tab === 'styles' ? `Подчерки (${styles.length})` : `Черновики (${drafts.length})`}
               </button>
             ))}
@@ -928,9 +951,9 @@ export function AIScriptwriter() {
                 <AnimatePresence mode="wait">
                   {genStep === 'mode-select' && !genLoading && styles.length > 0 && (
                     <motion.div key="mode-chips" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={iosSpringSoft} className="flex flex-wrap gap-2 mb-3">
-                      <button onClick={() => handleModeSelect('topic')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all touch-manipulation shadow-sm"><Type className="w-3.5 h-3.5" /> По теме <TokenBadge tokens={getTokenCost('sw_clarify')} size="sm" /></button>
-                      <button onClick={() => handleModeSelect('reference')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all touch-manipulation shadow-sm"><LinkIcon className="w-3.5 h-3.5" /> По референсу <TokenBadge tokens={getTokenCost('transcribe_video') + getTokenCost('sw_clarify')} size="sm" /></button>
-                      <button onClick={() => handleModeSelect('quick')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all touch-manipulation shadow-sm"><Zap className="w-3.5 h-3.5" /> Быстрая <TokenBadge tokens={getTokenCost('sw_quick')} size="sm" /></button>
+                      <button onClick={() => handleModeSelect('topic')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><Type className="w-3.5 h-3.5 text-slate-500" /> По теме <TokenBadge tokens={getTokenCost('sw_clarify')} size="sm" /></button>
+                      <button onClick={() => handleModeSelect('reference')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><LinkIcon className="w-3.5 h-3.5 text-slate-500" /> По референсу <TokenBadge tokens={getTokenCost('transcribe_video') + getTokenCost('sw_clarify')} size="sm" /></button>
+                      <button onClick={() => handleModeSelect('quick')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><Zap className="w-3.5 h-3.5 text-amber-500" /> Быстрая <TokenBadge tokens={getTokenCost('sw_quick')} size="sm" /></button>
                     </motion.div>
                   )}
                   {genStep === 'clarify' && !genLoading && (
@@ -950,35 +973,49 @@ export function AIScriptwriter() {
                   )}
                   {genStep === 'final' && !genLoading && (
                     <motion.div key="final-chips" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={iosSpringSoft} className="flex flex-wrap gap-2 mb-3">
-                      <button onClick={() => { if (currentDraftIdRef.current) { setFeedDraftId(currentDraftIdRef.current); setFeedFolder(null); setShowFeedModal(true); } }} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 transition-all shadow-sm touch-manipulation"><LayoutGrid className="w-3.5 h-3.5" /> В Ленту</button>
-                      <button onClick={() => setGenStep('retrain')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 transition-all shadow-sm touch-manipulation"><Sparkles className="w-3.5 h-3.5" /> Дообучить <TokenBadge tokens={getTokenCost('refine_prompt')} size="sm" /></button>
-                      <button onClick={resetChat} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200 bg-white text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all shadow-sm touch-manipulation"><Plus className="w-3.5 h-3.5" /> Новый</button>
+                      <button onClick={() => { if (currentDraftIdRef.current) { setFeedDraftId(currentDraftIdRef.current); setFeedFolder(null); setShowFeedModal(true); } }} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><LayoutGrid className="w-3.5 h-3.5 text-slate-500" /> В Ленту</button>
+                      <button onClick={() => setGenStep('retrain')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><Sparkles className="w-3.5 h-3.5 text-violet-500" /> Дообучить <TokenBadge tokens={getTokenCost('refine_prompt')} size="sm" /></button>
+                      <button onClick={resetChat} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-500 hover:text-slate-700 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><Plus className="w-3.5 h-3.5" /> Новый</button>
                     </motion.div>
                   )}
                   {genStep === 'retrain' && !genLoading && (
                     <motion.div key="retrain-chips" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={iosSpringSoft} className="flex gap-2 mb-3">
                       <CostBtn onClick={handleRetrain} cost={getTokenCost('refine_prompt')} className="text-xs"><Sparkles className="w-3.5 h-3.5" /> Да, дообучить</CostBtn>
-                      <button onClick={() => { setGenStep('final'); toast.info('Подчерк не изменён'); }} className="px-3.5 py-2 rounded-2xl border border-slate-200 bg-white text-xs text-slate-500 hover:bg-slate-50 transition-all shadow-sm touch-manipulation">Нет, не стоит</button>
+                      <button onClick={() => { setGenStep('final'); toast.info('Подчерк не изменён'); }} className="px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-500 hover:text-slate-700 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}>Нет, не стоит</button>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
                 {/* Prompt box */}
                 {!(['idle', 'transcribing'] as GenStep[]).includes(genStep) && (
-                  <div className="rounded-3xl bg-white border border-slate-200/80 shadow-[0_2px_12px_rgba(15,23,42,0.06)] transition-all focus-within:shadow-[0_2px_20px_rgba(15,23,42,0.1)] focus-within:border-slate-300">
+                  <div
+                    className="rounded-3xl transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.88)',
+                      backdropFilter: 'blur(24px)',
+                      WebkitBackdropFilter: 'blur(24px)',
+                      border: '1px solid rgba(255,255,255,0.7)',
+                      boxShadow: '0 4px 24px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.95)',
+                    }}
+                  >
                     <textarea
                       ref={promptRef}
                       value={getPromptValue()}
                       onChange={e => setPromptValue(e.target.value)}
                       placeholder={getPlaceholder()}
                       rows={1}
-                      className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-1 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none min-h-[48px]"
+                      className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-1 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none min-h-[50px] leading-relaxed"
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && getPromptValue().trim()) { e.preventDefault(); handlePromptSend(); } }}
                       disabled={genLoading}
                     />
-                    <div className="flex items-center gap-2 px-3 pb-2.5 pt-0.5">
+                    <div className="flex items-center gap-2 px-3 pb-3 pt-1">
                       {selectedStyle && (
-                        <span className="text-[10px] text-slate-400 px-2 py-0.5 rounded-full bg-slate-100 truncate max-w-[120px]">{selectedStyle.name}</span>
+                        <span
+                          className="text-[10px] text-slate-500 px-2 py-0.5 rounded-full truncate max-w-[120px]"
+                          style={{ background: 'rgba(15,23,42,0.06)', border: '1px solid rgba(15,23,42,0.07)' }}
+                        >
+                          {selectedStyle.name}
+                        </span>
                       )}
                       {promptSendCost() > 0 && getPromptValue().trim() && (
                         <TokenBadge tokens={promptSendCost()} size="sm" className="opacity-60" />
@@ -987,9 +1024,20 @@ export function AIScriptwriter() {
                         <button
                           onClick={handlePromptSend}
                           disabled={!getPromptValue().trim() || genLoading}
-                          className="w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-30 bg-slate-700 text-white hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500"
+                          className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-30"
+                          style={{
+                            background: getPromptValue().trim() && !genLoading
+                              ? 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)'
+                              : 'rgba(15,23,42,0.12)',
+                            boxShadow: getPromptValue().trim() && !genLoading
+                              ? '0 4px 12px rgba(15,23,42,0.25), inset 0 1px 0 rgba(255,255,255,0.1)'
+                              : 'none',
+                          }}
                         >
-                          {genLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          {genLoading
+                            ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                            : <Send className="w-4 h-4 text-white" strokeWidth={2} />
+                          }
                         </button>
                       </div>
                     </div>
