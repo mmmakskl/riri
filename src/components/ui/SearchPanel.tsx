@@ -171,6 +171,7 @@ export function SearchPanel({ isOpen, onClose, initialTab = DEFAULT_TAB, current
   const [linkUrl, setLinkUrl] = useState('');
   const [linkLoading, setLinkLoading] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
+  const [searchSent, setSearchSent] = useState(false);
   const [linkPreview, setLinkPreview] = useState<(InstagramSearchResult & { is_carousel?: boolean; carousel_slides?: string[] }) | null>(null);
   const [showFolderSelect, setShowFolderSelect] = useState(false);
   const [cardFolderSelect, setCardFolderSelect] = useState<string | null>(null);
@@ -437,6 +438,9 @@ export function SearchPanel({ isOpen, onClose, initialTab = DEFAULT_TAB, current
   const handleSearch = useCallback(async (searchQuery?: string) => {
     const queryToSearch = searchQuery || query;
     if (!queryToSearch.trim()) return;
+
+    setSearchSent(true);
+    setTimeout(() => setSearchSent(false), 600);
 
     const cleanQuery = queryToSearch.trim();
     
@@ -1096,6 +1100,11 @@ const match = linkPreview.url.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
                         "shadow-glass hover:shadow-glass-hover"
                       )}
                     >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <AnimatedSendIcon size={16} active={searchSent} color="currentColor" />
+                      )}
                       Найти
                       <TokenBadge tokens={getTokenCost('search')} />
                     </button>
