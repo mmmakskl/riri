@@ -45,101 +45,63 @@ export default async function handler(req, res) {
     !item.is_featured && !item.featured && !item.pinned_reel && !item.highlight_reel;
 
   const targetCount = count ? Math.min(Number(count), 36) : 12;
+  // API always returns 12 per page; cursor lives at top-level: data.pagination_token
+  const MAX_PAGES = Math.ceil(targetCount / 12);
 
-  console.log(`Fetching reels for @${cleanUsername}, target=${targetCount}`);
+  console.log(`Fetching reels for @${cleanUsername}, target=${targetCount}, max_pages=${MAX_PAGES}`);
 
   const allReels = [];
+  let cursor = null;
 
-  // ── Strategy 1: pass count directly (same approach as /hashtag/ and /searchreels/) ──
-  try {
-    const apiUrl = `https://instagram-scraper-20251.p.rapidapi.com/userreels/?username_or_id=${cleanUsername}&url_embed_safe=true&count=${targetCount}`;
-    console.log('Strategy 1 (count param):', apiUrl);
+  for (let page = 0; page < MAX_PAGES; page++) {
+    try {
+      let apiUrl = `https://instagram-scraper-20251.p.rapidapi.com/userreels/?username_or_id=${cleanUsername}&url_embed_safe=true`;
+      if (cursor) apiUrl += `&max_id=${encodeURIComponent(cursor)}`;
 
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-host': 'instagram-scraper-20251.p.rapidapi.com',
-        'x-rapidapi-key': RAPIDAPI_KEY,
-      },
-    });
+      console.log(`Page ${page + 1} url: ${apiUrl.split('?')[1]}`);
 
-    if (response.ok) {
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-host': 'instagram-scraper-20251.p.rapidapi.com',
+          'x-rapidapi-key': RAPIDAPI_KEY,
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`Page ${page + 1} HTTP error:`, response.status);
+        break;
+      }
+
       const data = await response.json();
-      console.log('S1 top-level keys:', Object.keys(data));
-      if (data?.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
-        console.log('S1 data keys:', Object.keys(data.data));
-      }
-
       const items = parseItems(data);
-      console.log('S1 items count:', items.length);
+      console.log(`Page ${page + 1} items: ${items.length}, cursor_before: ${cursor ? cursor.slice(0, 20) : 'null'}`);
 
-      if (items.length >= targetCount || items.length >= 24) {
-        // count param worked — use this result
-        const reels = items.filter(filterPinned).map(mapReel).filter(r => r.shortcode);
-        allReels.push(...reels);
-        console.log('S1 success, using direct count result');
-      } else if (items.length > 0) {
-        // Got fewer than requested — need pagination
-        const reels = items.filter(filterPinned).map(mapReel).filter(r => r.shortcode);
-        allReels.push(...reels);
+      if (items.length === 0) break;
 
-        // Extract cursor — check every known path
-        const rawCursor =
-          data?.data?.next_cursor ||
-          data?.data?.next_max_id ||
-          data?.data?.end_cursor ||
-          data?.data?.page_info?.end_cursor ||
-          data?.data?.paging_info?.max_id ||
-          data?.data?.user?.edge_owner_to_timeline_media?.page_info?.end_cursor ||
-          data?.next_cursor ||
-          data?.next_max_id ||
-          data?.pagination_token ||
-          data?.cursor ||
-          null;
+      const reels = items.filter(filterPinned).map(mapReel).filter(r => r.shortcode);
+      allReels.push(...reels);
 
-        console.log('S1 cursor found:', rawCursor);
+      // Cursor is at top-level as pagination_token (confirmed from logs)
+      cursor =
+        data?.pagination_token ||
+        data?.data?.next_cursor ||
+        data?.data?.next_max_id ||
+        data?.data?.end_cursor ||
+        data?.next_cursor ||
+        data?.next_max_id ||
+        null;
 
-        // Log structure to help debug for future
-        console.log('S1 full response (first 1200 chars):', JSON.stringify(data).slice(0, 1200));
+      console.log(`Page ${page + 1} next cursor: ${cursor ? cursor.slice(0, 20) + '...' : 'none'}`);
 
-        if (rawCursor && allReels.length < targetCount) {
-          // ── Strategy 2: paginate with cursor ──
-          const pagesNeeded = Math.ceil((targetCount - allReels.length) / 12);
+      if (!cursor) { console.log('No cursor, stopping'); break; }
+      if (allReels.length >= targetCount) break;
 
-          for (let page = 0; page < pagesNeeded; page++) {
-            await new Promise(r => setTimeout(r, 400));
-
-            // Try both max_id and next_cursor as param names
-            const cursorParam = encodeURIComponent(rawCursor);
-            const pageUrl = `https://instagram-scraper-20251.p.rapidapi.com/userreels/?username_or_id=${cleanUsername}&url_embed_safe=true&max_id=${cursorParam}`;
-            console.log(`S2 page ${page + 1}:`, pageUrl);
-
-            const pageResp = await fetch(pageUrl, {
-              method: 'GET',
-              headers: {
-                'x-rapidapi-host': 'instagram-scraper-20251.p.rapidapi.com',
-                'x-rapidapi-key': RAPIDAPI_KEY,
-              },
-            });
-
-            if (!pageResp.ok) { console.log('S2 page error:', pageResp.status); break; }
-
-            const pageData = await pageResp.json();
-            const pageItems = parseItems(pageData);
-            console.log(`S2 page ${page + 1} items:`, pageItems.length);
-            if (pageItems.length === 0) break;
-
-            const pageReels = pageItems.filter(filterPinned).map(mapReel).filter(r => r.shortcode);
-            allReels.push(...pageReels);
-            if (allReels.length >= targetCount) break;
-          }
-        }
-      }
-    } else {
-      console.error('S1 HTTP error:', response.status);
+      if (page < MAX_PAGES - 1) await new Promise(r => setTimeout(r, 400));
+    } catch (e) {
+      console.error(`Page ${page + 1} exception:`, e.message);
+      break;
     }
-  } catch (e) {
-    console.error('S1 exception:', e.message);
   }
 
   // Deduplicate
