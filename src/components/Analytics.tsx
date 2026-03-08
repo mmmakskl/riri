@@ -604,6 +604,8 @@ function SetupModal({ onSave, onClose, initial }: { onSave: (u: string) => void;
 
 // ─── Main Analytics Component ─────────────────────────────────────────────────
 
+type SubView = 'overview' | 'reels' | 'charts';
+
 export function Analytics() {
   const { currentProjectId } = useProjectContext();
   const {
@@ -614,6 +616,7 @@ export function Analytics() {
 
   const { deduct, canAfford } = useTokenBalance();
 
+  const [subView, setSubView] = useState<SubView>('overview');
   const [period, setPeriod] = useState<Period>('week');
   const [chartMode, setChartMode] = useState<ChartMode>('cumulative');
   const [sortBy, setSortBy] = useState<SortBy>('date');
@@ -625,6 +628,9 @@ export function Analytics() {
   useEffect(() => {
     if (currentProjectId) { loadProjectConfig(); loadAnalytics(); }
   }, [currentProjectId, loadProjectConfig, loadAnalytics]);
+
+  // Reset to overview when project changes
+  useEffect(() => { setSubView('overview'); }, [currentProjectId]);
 
   const handleSaveUsername = useCallback(async (username: string) => {
     const ok = await setInstagramUsername(username);
@@ -653,12 +659,8 @@ export function Analytics() {
     });
   }, [reels, sortBy]);
 
-  // Среднее из 3 роликов с минимальными просмотрами — база для расчёта х-множителя
   const avgBottom3Views = useMemo(() => {
-    const views = reels
-      .map(r => r.latest_view_count ?? 0)
-      .filter(v => v > 0)
-      .sort((a, b) => a - b);
+    const views = reels.map(r => r.latest_view_count ?? 0).filter(v => v > 0).sort((a, b) => a - b);
     const bottom3 = views.slice(0, Math.min(3, views.length));
     if (!bottom3.length) return 0;
     return Math.floor(bottom3.reduce((s, v) => s + v, 0) / bottom3.length);
@@ -677,237 +679,334 @@ export function Analytics() {
     return new Date(dt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
   };
 
-  return (
-    <div className="flex-1 min-h-0 overflow-y-auto bg-[#f5f5f7]">
-      <div className="max-w-2xl mx-auto px-4 pt-6 pb-24 space-y-5">
-
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <GreySphere size={48} />
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Аналитика</h1>
-              {instagramUsername ? (
-                <button onClick={() => setShowSetupModal(true)}
-                  className="text-[12px] text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1 mt-0.5">
-                  <Instagram className="w-3 h-3" />@{instagramUsername}
-                </button>
-              ) : (
-                <p className="text-[12px] text-slate-400 mt-0.5">Аккаунт не подключён</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {lastSyncAt && (
-              <span className="text-[11px] text-slate-400 hidden md:block">{formatLastSync(lastSyncAt)}</span>
-            )}
-            <button
-              onClick={() => hasAccount ? setShowSyncModal(true) : setShowSetupModal(true)}
-              disabled={syncing}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all touch-manipulation',
-                'bg-slate-900 text-white hover:bg-slate-700 active:scale-95 shadow-[0_4px_16px_rgba(15,23,42,0.2)]',
-                'disabled:opacity-60 disabled:cursor-not-allowed'
-              )}
-            >
-              <RefreshCw className={cn('w-4 h-4', syncing && 'animate-spin')} />
-              <span className="hidden sm:inline">{syncing ? 'Загрузка…' : 'Обновить'}</span>
+  // ── Shared Header ──────────────────────────────────────────────────────────
+  const Header = (
+    <div className="flex items-center justify-between gap-3 mb-5">
+      <div className="flex items-center gap-3">
+        {subView !== 'overview' && (
+          <motion.button
+            onClick={() => setSubView('overview')}
+            className="w-9 h-9 flex items-center justify-center rounded-2xl bg-white/80 border border-white/60 shadow-sm text-slate-600 hover:bg-white transition-colors touch-manipulation"
+            initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+            whileTap={{ scale: 0.94 }}
+          >
+            <ChevronLeft className="w-4.5 h-4.5" />
+          </motion.button>
+        )}
+        {subView === 'overview' && <GreySphere size={40} />}
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            {subView === 'overview' ? 'Аналитика' : subView === 'reels' ? 'Все ролики' : 'Графики'}
+          </h1>
+          {subView === 'overview' && instagramUsername && (
+            <button onClick={() => setShowSetupModal(true)}
+              className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1">
+              <Instagram className="w-2.5 h-2.5" />@{instagramUsername}
             </button>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {lastSyncAt && subView === 'overview' && (
+          <span className="text-[11px] text-slate-400 hidden sm:block">{formatLastSync(lastSyncAt)}</span>
+        )}
+        <button
+          onClick={() => hasAccount ? setShowSyncModal(true) : setShowSetupModal(true)}
+          disabled={syncing}
+          className={cn(
+            'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[13px] font-semibold transition-all touch-manipulation',
+            'bg-slate-900 text-white hover:bg-slate-700 active:scale-95 shadow-[0_4px_14px_rgba(15,23,42,0.18)]',
+            'disabled:opacity-60 disabled:cursor-not-allowed'
+          )}
+        >
+          <RefreshCw className={cn('w-3.5 h-3.5', syncing && 'animate-spin')} />
+          <span>{syncing ? 'Загрузка…' : 'Обновить'}</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
+        <div className="max-w-2xl mx-auto px-4 pt-6 pb-10">
+          {Header}
+          <div className="grid grid-cols-2 gap-3">
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} className={cn("h-28 bg-white/60 rounded-3xl animate-pulse", i <= 2 && "h-24", i >= 5 && "col-span-2 h-48")} />
+            ))}
           </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* Loading skeleton */}
-        {loading && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-slate-200/70 rounded-2xl animate-pulse" />)}
-            </div>
-            <div className="h-52 bg-slate-200/70 rounded-2xl animate-pulse" />
-          </div>
-        )}
+  // ── No account ─────────────────────────────────────────────────────────────
+  if (!hasAccount) {
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
+        <div className="max-w-2xl mx-auto px-4 pt-6 pb-10">
+          {Header}
+          <EmptyState onSetup={() => setShowSetupModal(true)} />
+        </div>
+        <AnimatePresence>
+          {showSetupModal && <SetupModal key="setup" initial="" onSave={handleSaveUsername} onClose={() => setShowSetupModal(false)} />}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
-        {/* No account */}
-        {!loading && !hasAccount && <EmptyState onSetup={() => setShowSetupModal(true)} />}
-
-        {/* Has account, no data */}
-        {!loading && hasAccount && !hasData && (
-          <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-              <BarChart2 className="w-7 h-7 text-slate-400" />
+  // ── Has account, no data ───────────────────────────────────────────────────
+  if (!hasData) {
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
+        <div className="max-w-2xl mx-auto px-4 pt-6 pb-10">
+          {Header}
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-white/80 border border-white/60 flex items-center justify-center mb-4 shadow-sm">
+              <BarChart2 className="w-8 h-8 text-slate-300" />
             </div>
             <h3 className="text-base font-semibold text-slate-700">Нет данных</h3>
-            <p className="text-sm text-slate-500 mt-1 max-w-xs">
-              Нажмите «Обновить» чтобы загрузить рилсы @{instagramUsername}
-            </p>
+            <p className="text-sm text-slate-500 mt-1 max-w-xs">Нажмите «Обновить» чтобы загрузить рилсы</p>
           </div>
-        )}
+        </div>
+        <AnimatePresence>
+          {showSyncModal && <SyncModal key="sync" onSync={handleSync} onClose={() => setShowSyncModal(false)} syncing={syncing} lastSyncAt={lastSyncAt} />}
+          {showSetupModal && <SetupModal key="setup" initial={instagramUsername} onSave={handleSaveUsername} onClose={() => setShowSetupModal(false)} />}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
-        {/* ── Main content ── */}
-        {!loading && hasData && (
-          <>
-            {/* ─── Bento stats grid ─── */}
-            {/* Row 1: 2 колонки */}
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── SUB-VIEW: REELS ───────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  if (subView === 'reels') {
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
+        <div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
+          {Header}
+          {/* Sort + layout controls */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[13px] text-slate-500">{reels.length} роликов</p>
+            <div className="flex items-center gap-2">
+              <select
+                value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}
+                className="text-xs text-slate-600 bg-white/80 border border-white/60 rounded-xl px-3 py-1.5 outline-none cursor-pointer shadow-sm"
+              >
+                <option value="date">По дате</option>
+                <option value="views">По просмотрам</option>
+                <option value="likes">По лайкам</option>
+                <option value="comments">По комментариям</option>
+              </select>
+              <div className="flex gap-0.5 p-1 bg-white/80 border border-white/60 rounded-xl shadow-sm">
+                <button onClick={() => setViewLayout('grid')} className={cn('p-1.5 rounded-lg transition-all', viewLayout === 'grid' ? 'bg-slate-800 text-white' : 'text-slate-400')}>
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setViewLayout('list')} className={cn('p-1.5 rounded-lg transition-all', viewLayout === 'list' ? 'bg-slate-800 text-white' : 'text-slate-400')}>
+                  <List className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+          {viewLayout === 'grid' ? (
+            <motion.div className="grid grid-cols-3 gap-2"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+              {sortedReels.map(reel => (
+                <ReelCard key={reel.id} reel={reel} onClick={() => setSelectedReel(reel)} layout="grid" avgBottom3Views={avgBottom3Views} />
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div className="space-y-2"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+              {sortedReels.map(reel => (
+                <ReelCard key={reel.id} reel={reel} onClick={() => setSelectedReel(reel)} layout="list" avgBottom3Views={avgBottom3Views} />
+              ))}
+            </motion.div>
+          )}
+        </div>
+        <AnimatePresence>
+          {selectedReel && <ReelDetailModal key="reel-detail" reel={selectedReel} onClose={() => setSelectedReel(null)} getReelSnapshots={getReelSnapshots} />}
+          {showSyncModal && <SyncModal key="sync" onSync={handleSync} onClose={() => setShowSyncModal(false)} syncing={syncing} lastSyncAt={lastSyncAt} />}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── SUB-VIEW: CHARTS ──────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  if (subView === 'charts') {
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
+        <div className="max-w-2xl mx-auto px-4 pt-6 pb-24 space-y-4">
+          {Header}
+          {/* Controls */}
+          <div className="flex gap-2 flex-wrap">
+            <ChartModeToggle value={chartMode} onChange={setChartMode} />
+            <PeriodSelector value={period} onChange={setPeriod} />
+          </div>
+          {/* Views */}
+          <div className={cn(CARD, "p-4")}>
+            <p className="text-[13px] font-semibold text-slate-700 mb-3">Просмотры</p>
+            {chartData.length >= 2 ? (
+              <AreaChart data={chartData} aspectRatio="2.2 / 1" margin={{ top: 16, right: 16, bottom: 32, left: 44 }}>
+                <Grid horizontal numTicksRows={4} />
+                <Area dataKey="views" fill="#6366f1" fillOpacity={0.13} stroke="#6366f1" strokeWidth={2} fadeEdges />
+                <YAxis numTicks={4} formatValue={(v) => fmt(v as number)} />
+                <XAxis numTicks={5} />
+                <ChartTooltip rows={(p) => [{ color: '#6366f1', label: 'Просмотры', value: (p.views as number) ?? 0 }]} />
+              </AreaChart>
+            ) : (
+              <div className="h-36 flex flex-col items-center justify-center text-center">
+                <AlertCircle className="w-8 h-8 text-slate-200 mb-2" />
+                <p className="text-sm text-slate-400">Нужно минимум 2 обновления</p>
+              </div>
+            )}
+          </div>
+          {/* Likes + Comments */}
+          {chartData.length >= 2 && (
+            <div className={cn(CARD, "p-4")}>
+              <p className="text-[13px] font-semibold text-slate-700 mb-3">Лайки и комментарии</p>
+              <AreaChart data={chartData} aspectRatio="2.2 / 1" margin={{ top: 16, right: 16, bottom: 32, left: 44 }}>
+                <Grid horizontal numTicksRows={3} />
+                <Area dataKey="likes" fill="#f43f5e" fillOpacity={0.12} stroke="#f43f5e" strokeWidth={2} fadeEdges />
+                <Area dataKey="comments" fill="#10b981" fillOpacity={0.12} stroke="#10b981" strokeWidth={2} fadeEdges />
+                <YAxis numTicks={3} formatValue={(v) => fmt(v as number)} />
+                <XAxis numTicks={5} />
+                <ChartTooltip rows={(p) => [
+                  { color: '#f43f5e', label: 'Лайки', value: (p.likes as number) ?? 0 },
+                  { color: '#10b981', label: 'Комментарии', value: (p.comments as number) ?? 0 },
+                ]} />
+              </AreaChart>
+            </div>
+          )}
+        </div>
+        <AnimatePresence>
+          {showSyncModal && <SyncModal key="sync" onSync={handleSync} onClose={() => setShowSyncModal(false)} syncing={syncing} lastSyncAt={lastSyncAt} />}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── OVERVIEW — Bento Dashboard ────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  const previewReels = sortedReels.slice(0, 4);
+
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
+      <div className="max-w-2xl mx-auto px-4 pt-6 pb-10">
+        {Header}
+
+        <motion.div
+          className="space-y-3"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
+        >
+          {/* Row 1: Stat chips */}
+          <div className="grid grid-cols-2 gap-3">
+            <StatCell icon={<Film className="w-3.5 h-3.5" />} label="Роликов" value={stats?.totalReels || 0} sub="в базе" accent="#64748b" />
+            <StatCell icon={<Eye className="w-3.5 h-3.5" />} label="Ср. просм./ролик" value={stats?.avgViewsLast30Days || 0} sub="за 30 дней" accent="#6366f1" />
+          </div>
+
+          {/* Row 2: Best reels (2 col) */}
+          {(stats?.bestReelWeek || stats?.bestReelMonth) && (
             <div className="grid grid-cols-2 gap-3">
-              <StatCell
-                icon={<Film className="w-3.5 h-3.5" />}
-                label="Роликов"
-                value={stats?.totalReels || 0}
-                sub="в базе"
-                accent="#64748b"
-              />
-              <StatCell
-                icon={<Eye className="w-3.5 h-3.5" />}
-                label="Ср. просм./ролик"
-                value={stats?.avgViewsLast30Days || 0}
-                sub="за 30 дней"
-                accent="#6366f1"
-              />
-            </div>
-
-            {/* Row 2: Лучший рилс недели — полная ширина */}
-            {stats?.bestReelWeek && (
-              <FeatureCell
-                icon={<Award className="w-3.5 h-3.5" />}
-                label="Лучший рилс недели"
-                value={stats.bestReelWeek.latest_view_count || 0}
-                sub="просмотров"
-                caption={stats.bestReelWeek.caption?.slice(0, 50) || undefined}
-                accent="#f59e0b"
-              >
-                {stats.bestReelWeek.thumbnail_url && (
-                  <div
-                    className="w-12 h-[68px] rounded-xl overflow-hidden flex-shrink-0 cursor-pointer shadow-sm"
-                    onClick={() => stats.bestReelWeek && setSelectedReel(stats.bestReelWeek)}
-                  >
-                    <img src={stats.bestReelWeek.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </FeatureCell>
-            )}
-
-            {/* Row 3: Лучший рилс месяца — полная ширина */}
-            {stats?.bestReelMonth && (
-              <FeatureCell
-                icon={<TrendingUp className="w-3.5 h-3.5" />}
-                label="Лучший рилс месяца"
-                value={stats.bestReelMonth.latest_view_count || 0}
-                sub="просмотров"
-                caption={stats.bestReelMonth.caption?.slice(0, 50) || undefined}
-                accent="#10b981"
-              >
-                {stats.bestReelMonth.thumbnail_url && (
-                  <div
-                    className="w-12 h-[68px] rounded-xl overflow-hidden flex-shrink-0 cursor-pointer shadow-sm"
-                    onClick={() => stats.bestReelMonth && setSelectedReel(stats.bestReelMonth)}
-                  >
-                    <img src={stats.bestReelMonth.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </FeatureCell>
-            )}
-
-            {/* ─── Views chart ─── */}
-            <div className="bg-white/78 backdrop-blur-[20px] border border-white/65 rounded-2xl shadow-[0_4px_24px_rgba(15,23,42,0.07)] p-4">
-              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <p className="text-[13px] font-semibold text-slate-700">Просмотры</p>
-                <div className="flex gap-2 flex-wrap">
-                  <ChartModeToggle value={chartMode} onChange={setChartMode} />
-                  <PeriodSelector value={period} onChange={setPeriod} />
-                </div>
-              </div>
-              {chartData.length >= 2 ? (
-                <AreaChart data={chartData} aspectRatio="2.5 / 1" margin={{ top: 16, right: 16, bottom: 32, left: 44 }}>
-                  <Grid horizontal numTicksRows={4} />
-                  <Area dataKey="views" fill="#6366f1" fillOpacity={0.12} stroke="#6366f1" strokeWidth={2} fadeEdges />
-                  <YAxis numTicks={4} formatValue={(v) => fmt(v as number)} />
-                  <XAxis numTicks={5} />
-                  <ChartTooltip rows={(p) => [{ color: '#6366f1', label: 'Просмотры', value: (p.views as number) ?? 0 }]} />
-                </AreaChart>
-              ) : (
-                <div className="h-36 flex flex-col items-center justify-center text-center">
-                  <AlertCircle className="w-8 h-8 text-slate-200 mb-2" />
-                  <p className="text-sm text-slate-400">Недостаточно данных</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Нужно минимум 2 обновления</p>
-                </div>
+              {stats.bestReelWeek && (
+                <BestReelCell
+                  icon={<Award className="w-3 h-3" />}
+                  label="Лучший недели"
+                  reel={stats.bestReelWeek}
+                  accent="#f59e0b"
+                  onClick={() => setSelectedReel(stats.bestReelWeek!)}
+                />
+              )}
+              {stats.bestReelMonth && (
+                <BestReelCell
+                  icon={<TrendingUp className="w-3 h-3" />}
+                  label="Лучший месяца"
+                  reel={stats.bestReelMonth}
+                  accent="#10b981"
+                  onClick={() => setSelectedReel(stats.bestReelMonth!)}
+                />
               )}
             </div>
+          )}
 
-            {/* ─── Likes & Comments chart ─── */}
-            {chartData.length >= 2 && (
-              <div className="bg-white/78 backdrop-blur-[20px] border border-white/65 rounded-2xl shadow-[0_4px_24px_rgba(15,23,42,0.07)] p-4">
-                <p className="text-[13px] font-semibold text-slate-700 mb-3">Лайки и комментарии</p>
-                <AreaChart data={chartData} aspectRatio="2.5 / 1" margin={{ top: 16, right: 16, bottom: 32, left: 44 }}>
-                  <Grid horizontal numTicksRows={3} />
-                  <Area dataKey="likes" fill="#f43f5e" fillOpacity={0.12} stroke="#f43f5e" strokeWidth={2} fadeEdges />
-                  <Area dataKey="comments" fill="#10b981" fillOpacity={0.12} stroke="#10b981" strokeWidth={2} fadeEdges />
-                  <YAxis numTicks={3} formatValue={(v) => fmt(v as number)} />
-                  <XAxis numTicks={5} />
-                  <ChartTooltip rows={(p) => [
-                    { color: '#f43f5e', label: 'Лайки', value: (p.likes as number) ?? 0 },
-                    { color: '#10b981', label: 'Комментарии', value: (p.comments as number) ?? 0 },
-                  ]} />
-                </AreaChart>
+          {/* Row 3: Charts card — clickable tile */}
+          <motion.button
+            onClick={() => setSubView('charts')}
+            className={cn(CARD, "w-full p-4 text-left active:scale-[0.98] transition-transform")}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[13px] font-semibold text-slate-700">Просмотры</p>
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <span className="text-[11px]">Открыть</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            {chartData.length >= 2 ? (
+              <AreaChart data={chartData} aspectRatio="3 / 1" margin={{ top: 10, right: 10, bottom: 24, left: 36 }}>
+                <Grid horizontal numTicksRows={3} />
+                <Area dataKey="views" fill="#6366f1" fillOpacity={0.12} stroke="#6366f1" strokeWidth={2} fadeEdges />
+                <YAxis numTicks={3} formatValue={(v) => fmt(v as number)} />
+                <XAxis numTicks={4} />
+                <ChartTooltip rows={(p) => [{ color: '#6366f1', label: 'Просмотры', value: (p.views as number) ?? 0 }]} />
+              </AreaChart>
+            ) : (
+              <div className="h-24 flex items-center justify-center text-center">
+                <p className="text-sm text-slate-400">Нужно минимум 2 обновления</p>
               </div>
             )}
+          </motion.button>
 
-            {/* ─── Reels grid ─── */}
-            <div>
-              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <p className="text-[13px] font-semibold text-slate-700">
-                  Все ролики <span className="text-slate-400 font-normal">({reels.length})</span>
-                </p>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}
-                    className="text-xs text-slate-600 bg-white/80 border border-white/60 rounded-xl px-3 py-1.5 outline-none cursor-pointer shadow-sm"
-                  >
-                    <option value="date">По дате</option>
-                    <option value="views">По просмотрам</option>
-                    <option value="likes">По лайкам</option>
-                    <option value="comments">По комментариям</option>
-                  </select>
-                  <div className="flex gap-0.5 p-1 bg-white/80 border border-white/60 rounded-xl shadow-sm">
-                    <button
-                      onClick={() => setViewLayout('grid')}
-                      className={cn('p-1.5 rounded-lg transition-all', viewLayout === 'grid' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-600')}
-                    ><LayoutGrid className="w-3.5 h-3.5" /></button>
-                    <button
-                      onClick={() => setViewLayout('list')}
-                      className={cn('p-1.5 rounded-lg transition-all', viewLayout === 'list' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-600')}
-                    ><List className="w-3.5 h-3.5" /></button>
-                  </div>
-                </div>
+          {/* Row 4: Reels preview card — clickable tile */}
+          <motion.button
+            onClick={() => setSubView('reels')}
+            className={cn(CARD, "w-full p-4 text-left active:scale-[0.98] transition-transform")}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[13px] font-semibold text-slate-700">Ролики</p>
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <span className="text-[11px]">{reels.length} всего</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </div>
-
-              {viewLayout === 'grid' ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {sortedReels.map(reel => (
-                    <ReelCard key={reel.id} reel={reel} onClick={() => setSelectedReel(reel)} layout="grid" avgBottom3Views={avgBottom3Views} />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {sortedReels.map(reel => (
-                    <ReelCard key={reel.id} reel={reel} onClick={() => setSelectedReel(reel)} layout="list" avgBottom3Views={avgBottom3Views} />
-                  ))}
-                </div>
-              )}
             </div>
-          </>
-        )}
+            {previewReels.length > 0 ? (
+              <div className="grid grid-cols-4 gap-2">
+                {previewReels.map(reel => {
+                  const takenAt = reel.taken_at
+                    ? new Date(reel.taken_at * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+                    : undefined;
+                  return (
+                    <div key={reel.id} className="relative rounded-xl overflow-hidden bg-slate-100" style={{ aspectRatio: '9/16' }}>
+                      {reel.thumbnail_url
+                        ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center"><Film className="w-4 h-4 text-slate-300" /></div>
+                      }
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      {takenAt && (
+                        <p className="absolute bottom-1 left-0 right-0 text-center text-white/80 text-[8px] font-medium">{takenAt}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">Нет роликов</p>
+            )}
+          </motion.button>
+        </motion.div>
       </div>
 
       {/* Modals */}
       <AnimatePresence>
-        {showSetupModal && (
-          <SetupModal key="setup" initial={instagramUsername || ''} onSave={handleSaveUsername} onClose={() => setShowSetupModal(false)} />
-        )}
-        {showSyncModal && (
-          <SyncModal key="sync" onSync={handleSync} onClose={() => setShowSyncModal(false)} syncing={syncing} lastSyncAt={lastSyncAt} />
-        )}
-        {selectedReel && (
-          <ReelDetailModal key="reel-detail" reel={selectedReel} onClose={() => setSelectedReel(null)} getReelSnapshots={getReelSnapshots} />
-        )}
+        {showSetupModal && <SetupModal key="setup" initial={instagramUsername || ''} onSave={handleSaveUsername} onClose={() => setShowSetupModal(false)} />}
+        {showSyncModal && <SyncModal key="sync" onSync={handleSync} onClose={() => setShowSyncModal(false)} syncing={syncing} lastSyncAt={lastSyncAt} />}
+        {selectedReel && <ReelDetailModal key="reel-detail" reel={selectedReel} onClose={() => setSelectedReel(null)} getReelSnapshots={getReelSnapshots} />}
       </AnimatePresence>
     </div>
   );
