@@ -15,6 +15,7 @@ import { TokenBadge } from './ui/TokenBadge';
 import { cn } from '../utils/cn';
 import { iosSpringSoft } from '../utils/motionPresets';
 import { toast } from 'sonner';
+import { getDisplayName } from './Dashboard';
 import {
   Sparkles, Plus, ArrowLeft, Loader2, Trash2,
   FileText, MessageSquare, Pencil, LayoutGrid,
@@ -95,7 +96,14 @@ const msgAnim = {
 // ─── Shared UI ───────────────────────────────────────────────────────────────
 
 function GlassCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn('rounded-card-xl bg-white/72 backdrop-blur-glass-xl border border-white/55 shadow-glass', className)}>{children}</div>;
+  return (
+    <div
+      className={cn('rounded-[18px]', className)}
+      style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}
+    >
+      {children}
+    </div>
+  );
 }
 
 function CostBtn({ onClick, disabled, loading, cost, children, variant = 'primary', className }: {
@@ -115,14 +123,43 @@ function CostBtn({ onClick, disabled, loading, cost, children, variant = 'primar
   );
 }
 
+// ─── Riri Orb (3D CSS sphere) ─────────────────────────────────────────────────
+
+function RiriOrb({ size = 160, floating = false, className }: { size?: number; floating?: boolean; className?: string }) {
+  const s = size;
+  return (
+    <motion.div
+      className={cn('rounded-full flex-shrink-0 select-none', className)}
+      animate={floating ? { y: [-6, 6, -6], scale: [1, 1.018, 1] } : undefined}
+      transition={floating ? { duration: 4.8, repeat: Infinity, ease: 'easeInOut' } : undefined}
+      style={{
+        width: s,
+        height: s,
+        background: `radial-gradient(circle at 36% 30%, #ffe0a0 0%, #ffb340 26%, #f07012 55%, #c04010 80%, #8c2c00 100%)`,
+        boxShadow: `
+          inset ${-s * 0.07}px ${-s * 0.07}px ${s * 0.18}px rgba(100,20,0,0.38),
+          inset ${s * 0.065}px ${s * 0.055}px ${s * 0.14}px rgba(255,228,120,0.52),
+          0 ${s * 0.1}px ${s * 0.38}px rgba(200,70,0,0.22),
+          0 ${s * 0.04}px ${s * 0.1}px rgba(180,50,0,0.14)
+        `,
+      }}
+    />
+  );
+}
+
 function RiriBubble({ text }: { text: string }) {
   return (
     <motion.div {...msgAnim} className="flex gap-2.5 items-start max-w-[85%]">
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-glass-sm">
-        <Sparkles className="w-3.5 h-3.5 text-white" />
-      </div>
-      <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md bg-white/80 backdrop-blur-glass border border-white/50 shadow-glass-sm">
-        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{text}</p>
+      <RiriOrb size={26} className="mt-0.5" />
+      <div
+        className="px-3.5 py-2.5 rounded-[18px] rounded-tl-[6px]"
+        style={{
+          background: '#ffffff',
+          border: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        }}
+      >
+        <p className="text-[15px] text-[#1a1a18] leading-[1.55] whitespace-pre-wrap">{text}</p>
       </div>
     </motion.div>
   );
@@ -131,8 +168,14 @@ function RiriBubble({ text }: { text: string }) {
 function UserBubble({ text }: { text: string }) {
   return (
     <motion.div {...msgAnim} className="flex justify-end">
-      <div className="px-3.5 py-2.5 rounded-2xl rounded-tr-md bg-slate-600 text-white shadow-glass-sm max-w-[80%]">
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{text}</p>
+      <div
+        className="px-3.5 py-2.5 rounded-[18px] rounded-tr-[6px] max-w-[80%]"
+        style={{
+          background: '#1a1a18',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}
+      >
+        <p className="text-[15px] text-white/90 leading-[1.55] whitespace-pre-wrap">{text}</p>
       </div>
     </motion.div>
   );
@@ -141,15 +184,20 @@ function UserBubble({ text }: { text: string }) {
 function TypingIndicator() {
   return (
     <motion.div {...msgAnim} className="flex gap-2.5 items-start">
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center flex-shrink-0 shadow-glass-sm">
-        <Sparkles className="w-3.5 h-3.5 text-white" />
-      </div>
-      <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-white/80 backdrop-blur-glass border border-white/50 shadow-glass-sm">
+      <RiriOrb size={26} />
+      <div
+        className="px-4 py-3 rounded-[18px] rounded-tl-[6px]"
+        style={{
+          background: '#ffffff',
+          border: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        }}
+      >
         <div className="flex gap-1">
           {[0, 1, 2].map(i => (
-            <motion.div key={i} className="w-2 h-2 rounded-full bg-slate-400"
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+            <motion.div key={i} className="w-2 h-2 rounded-full bg-slate-300"
+              animate={{ opacity: [0.35, 1, 0.35] }}
+              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.22 }}
             />
           ))}
         </div>
@@ -225,6 +273,10 @@ export function AIScriptwriter() {
 
   const styles = currentProject?.projectStyles || [];
   const selectedStyle = styles.find(s => s.id === selectedStyleId) || null;
+
+  // Welcome state: when only init message (or no messages) and chat hasn't started
+  const isWelcomeState = activeTab === 'chat' && (genStep === 'idle' || genStep === 'mode-select') && messages.length <= 1;
+  const displayName = getDisplayName();
 
   // Auto-select first style if none selected
   useEffect(() => {
@@ -757,26 +809,31 @@ export function AIScriptwriter() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#fafafa] overflow-hidden">
+    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#f5f4f0' }}>
       {/* ── Header + Tabs ── */}
-      <div className="px-4 pt-6 pb-0 safe-top">
+      <div className="px-4 pt-5 pb-0 safe-top">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center shadow-glass">
-              <Sparkles className="w-4.5 h-4.5 text-white" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-slate-800 font-heading tracking-tight">Riri · ИИ-сценарист</h1>
-            </div>
-          </div>
+          {/* Title row — only visible when chat is active */}
+          <AnimatePresence>
+            {!isWelcomeState && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+                className="flex items-center gap-2.5 mb-4"
+              >
+                <RiriOrb size={30} />
+                <h1 className="text-[17px] font-semibold text-[#1a1a18] tracking-tight">Riri · ИИ-сценарист</h1>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Tab bar */}
           <div
             className="flex gap-1 p-1 mb-3 rounded-2xl"
             style={{
-              background: 'rgba(255,255,255,0.72)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.6)',
-              boxShadow: '0 2px 8px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.8)',
+              background: 'rgba(0,0,0,0.055)',
+              border: '1px solid rgba(0,0,0,0.04)',
             }}
           >
             {(['chat', 'styles', 'drafts'] as Tab[]).map(tab => (
@@ -784,15 +841,12 @@ export function AIScriptwriter() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  'flex-1 py-2 px-2 rounded-xl text-xs font-medium transition-all min-h-[36px] touch-manipulation',
-                  activeTab === tab
-                    ? 'text-slate-800'
-                    : 'text-slate-500 hover:text-slate-700'
+                  'flex-1 py-2 px-2 rounded-xl text-[13px] font-medium transition-all min-h-[36px] touch-manipulation',
+                  activeTab === tab ? 'text-[#1a1a18]' : 'text-[#1a1a18]/45 hover:text-[#1a1a18]/70'
                 )}
                 style={activeTab === tab ? {
-                  background: 'rgba(255,255,255,0.92)',
-                  boxShadow: '0 2px 8px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.05)',
-                  border: '1px solid rgba(255,255,255,0.7)',
+                  background: '#ffffff',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
                 } : {}}
               >
                 {tab === 'chat' ? 'Чат' : tab === 'styles' ? `Подчерки (${styles.length})` : `Черновики (${drafts.length})`}
@@ -825,8 +879,81 @@ export function AIScriptwriter() {
             {/* Messages area */}
             <div className="flex-1 overflow-y-auto px-4 custom-scrollbar-light">
               <div className="max-w-2xl mx-auto space-y-3 py-3">
-                {messages.map(msg => msg.role === 'riri' ? <RiriBubble key={msg.id} text={msg.text} /> : <UserBubble key={msg.id} text={msg.text} />)}
-                {genLoading && <TypingIndicator />}
+
+                {/* ════ Welcome state ════ */}
+                <AnimatePresence mode="wait">
+                  {isWelcomeState && (
+                    <motion.div
+                      key="welcome"
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -12, scale: 0.96 }}
+                      transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] }}
+                      className="flex flex-col items-center text-center pt-8 pb-6 gap-8"
+                    >
+                      {/* 3D Orange Orb */}
+                      <RiriOrb size={148} floating />
+
+                      {/* Heading */}
+                      <div className="space-y-1 px-4">
+                        <h2 className="text-[30px] font-semibold leading-tight tracking-[-0.02em] text-[#1a1a18]">
+                          {displayName ? `Привет, ${displayName}!` : 'Привет!'}
+                        </h2>
+                        <p className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-[#1a1a18]/55">
+                          Что хочешь<br/>создать сегодня?
+                        </p>
+                      </div>
+
+                      {/* Mode suggestion chips */}
+                      {styles.length > 0 ? (
+                        <div className="flex flex-col gap-2 w-full max-w-xs">
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => handleModeSelect('topic')}
+                              className="flex flex-col items-start gap-1 px-3.5 py-3 rounded-2xl text-left touch-manipulation active:scale-95 transition-transform"
+                              style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
+                            >
+                              <span className="text-[13px] font-medium text-[#1a1a18]">По теме</span>
+                              <span className="text-[11px] text-[#1a1a18]/45">идея → сценарий</span>
+                            </button>
+                            <button
+                              onClick={() => handleModeSelect('reference')}
+                              className="flex flex-col items-start gap-1 px-3.5 py-3 rounded-2xl text-left touch-manipulation active:scale-95 transition-transform"
+                              style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
+                            >
+                              <span className="text-[13px] font-medium text-[#1a1a18]">По референсу</span>
+                              <span className="text-[11px] text-[#1a1a18]/45">ссылка на рилс</span>
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => handleModeSelect('quick')}
+                            className="flex items-center justify-between px-3.5 py-3 rounded-2xl touch-manipulation active:scale-95 transition-transform"
+                            style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
+                          >
+                            <div className="flex flex-col items-start gap-0.5">
+                              <span className="text-[13px] font-medium text-[#1a1a18]">Быстрый сценарий</span>
+                              <span className="text-[11px] text-[#1a1a18]/45">без уточняющих вопросов</span>
+                            </div>
+                            <Zap className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="px-4 py-3 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(0,0,0,0.06)' }}>
+                          <p className="text-[13px] text-[#1a1a18]/60">Сначала обучи Riri —</p>
+                          <p className="text-[13px] font-medium text-[#1a1a18]">перейди на вкладку «Подчерки»</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* ════ Normal chat messages ════ */}
+                {!isWelcomeState && (
+                  <div className="space-y-3">
+                    {messages.map(msg => msg.role === 'riri' ? <RiriBubble key={msg.id} text={msg.text} /> : <UserBubble key={msg.id} text={msg.text} />)}
+                    {genLoading && <TypingIndicator />}
+                  </div>
+                )}
 
                 {/* ── Inline interactive areas ── */}
 
@@ -949,13 +1076,7 @@ export function AIScriptwriter() {
               <div className="max-w-2xl mx-auto">
                 {/* Suggestion chips above the prompt */}
                 <AnimatePresence mode="wait">
-                  {genStep === 'mode-select' && !genLoading && styles.length > 0 && (
-                    <motion.div key="mode-chips" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={iosSpringSoft} className="flex flex-wrap gap-2 mb-3">
-                      <button onClick={() => handleModeSelect('topic')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><Type className="w-3.5 h-3.5 text-slate-500" /> По теме <TokenBadge tokens={getTokenCost('sw_clarify')} size="sm" /></button>
-                      <button onClick={() => handleModeSelect('reference')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><LinkIcon className="w-3.5 h-3.5 text-slate-500" /> По референсу <TokenBadge tokens={getTokenCost('transcribe_video') + getTokenCost('sw_clarify')} size="sm" /></button>
-                      <button onClick={() => handleModeSelect('quick')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><Zap className="w-3.5 h-3.5 text-amber-500" /> Быстрая <TokenBadge tokens={getTokenCost('sw_quick')} size="sm" /></button>
-                    </motion.div>
-                  )}
+                  {/* Mode chips hidden when in welcome state — they're shown inside the welcome area */}
                   {genStep === 'clarify' && !genLoading && (
                     <motion.div key="clarify-chip" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={iosSpringSoft} className="flex gap-2 mb-3">
                       <CostBtn onClick={handleClarifyDone} disabled={genAnswers.some(a => !a?.trim())} cost={getTokenCost('sw_hooks')} className="text-xs">Подтвердить и далее <ChevronRight className="w-3.5 h-3.5" /></CostBtn>
@@ -973,29 +1094,27 @@ export function AIScriptwriter() {
                   )}
                   {genStep === 'final' && !genLoading && (
                     <motion.div key="final-chips" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={iosSpringSoft} className="flex flex-wrap gap-2 mb-3">
-                      <button onClick={() => { if (currentDraftIdRef.current) { setFeedDraftId(currentDraftIdRef.current); setFeedFolder(null); setShowFeedModal(true); } }} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><LayoutGrid className="w-3.5 h-3.5 text-slate-500" /> В Ленту</button>
-                      <button onClick={() => setGenStep('retrain')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-700 hover:text-slate-900 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><Sparkles className="w-3.5 h-3.5 text-violet-500" /> Дообучить <TokenBadge tokens={getTokenCost('refine_prompt')} size="sm" /></button>
-                      <button onClick={resetChat} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-500 hover:text-slate-700 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}><Plus className="w-3.5 h-3.5" /> Новый</button>
+                      <button onClick={() => { if (currentDraftIdRef.current) { setFeedDraftId(currentDraftIdRef.current); setFeedFolder(null); setShowFeedModal(true); } }} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-[#1a1a18] transition-all touch-manipulation active:scale-95" style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}><LayoutGrid className="w-3.5 h-3.5 text-[#1a1a18]/50" /> В Ленту</button>
+                      <button onClick={() => setGenStep('retrain')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-[#1a1a18] transition-all touch-manipulation active:scale-95" style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}><Sparkles className="w-3.5 h-3.5 text-violet-500" /> Дообучить <TokenBadge tokens={getTokenCost('refine_prompt')} size="sm" /></button>
+                      <button onClick={resetChat} className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium text-[#1a1a18]/60 transition-all touch-manipulation active:scale-95" style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}><Plus className="w-3.5 h-3.5" /> Новый</button>
                     </motion.div>
                   )}
                   {genStep === 'retrain' && !genLoading && (
                     <motion.div key="retrain-chips" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={iosSpringSoft} className="flex gap-2 mb-3">
                       <CostBtn onClick={handleRetrain} cost={getTokenCost('refine_prompt')} className="text-xs"><Sparkles className="w-3.5 h-3.5" /> Да, дообучить</CostBtn>
-                      <button onClick={() => { setGenStep('final'); toast.info('Подчерк не изменён'); }} className="px-3.5 py-2 rounded-2xl text-xs font-medium text-slate-500 hover:text-slate-700 transition-all touch-manipulation active:scale-95" style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}>Нет, не стоит</button>
+                      <button onClick={() => { setGenStep('final'); toast.info('Подчерк не изменён'); }} className="px-3.5 py-2 rounded-2xl text-xs font-medium text-[#1a1a18]/60 transition-all touch-manipulation active:scale-95" style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>Нет, не стоит</button>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
                 {/* Prompt box */}
-                {!(['idle', 'transcribing'] as GenStep[]).includes(genStep) && (
+                {!(['idle', 'transcribing'] as GenStep[]).includes(genStep) && !isWelcomeState && (
                   <div
                     className="rounded-3xl transition-all"
                     style={{
-                      background: 'rgba(255,255,255,0.88)',
-                      backdropFilter: 'blur(24px)',
-                      WebkitBackdropFilter: 'blur(24px)',
-                      border: '1px solid rgba(255,255,255,0.7)',
-                      boxShadow: '0 4px 24px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.95)',
+                      background: '#ffffff',
+                      border: '1px solid rgba(0,0,0,0.07)',
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
                     }}
                   >
                     <textarea
@@ -1004,15 +1123,15 @@ export function AIScriptwriter() {
                       onChange={e => setPromptValue(e.target.value)}
                       placeholder={getPlaceholder()}
                       rows={1}
-                      className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-1 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none min-h-[50px] leading-relaxed"
+                      className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-1 text-[15px] text-[#1a1a18] placeholder:text-[#1a1a18]/35 focus:outline-none min-h-[50px] leading-relaxed"
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && getPromptValue().trim()) { e.preventDefault(); handlePromptSend(); } }}
                       disabled={genLoading}
                     />
                     <div className="flex items-center gap-2 px-3 pb-3 pt-1">
                       {selectedStyle && (
                         <span
-                          className="text-[10px] text-slate-500 px-2 py-0.5 rounded-full truncate max-w-[120px]"
-                          style={{ background: 'rgba(15,23,42,0.06)', border: '1px solid rgba(15,23,42,0.07)' }}
+                          className="text-[11px] text-[#1a1a18]/50 px-2.5 py-1 rounded-full truncate max-w-[130px]"
+                          style={{ background: 'rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.06)' }}
                         >
                           {selectedStyle.name}
                         </span>
