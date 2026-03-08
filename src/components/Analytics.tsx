@@ -10,7 +10,7 @@ import { AreaChart, Area, Grid, XAxis, YAxis, ChartTooltip } from './ui/area-cha
 import { cn } from '../utils/cn';
 import {
   BarChart2, RefreshCw, Instagram, Eye, Heart, MessageCircle,
-  Award, Film, X,
+  Award, Film, X, CalendarDays,
   ArrowUpRight, ArrowDownRight, Minus, Mic, Sparkles,
   LayoutGrid, List, AlertCircle, Clock, ChevronRight, ChevronLeft,
 } from 'lucide-react';
@@ -929,6 +929,17 @@ export function Analytics() {
     .filter(r => (r.taken_at ?? 0) >= monthAgo)
     .reduce((s, r) => s + (r.latest_view_count ?? 0), 0);
 
+  // Видео за вчерашний день
+  const nowMs = Date.now();
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const yesterdayStartSec = (todayStart.getTime() - 86400000) / 1000;
+  const yesterdayEndSec = todayStart.getTime() / 1000;
+  const videosYesterday = reels.filter(
+    r => (r.taken_at ?? 0) >= yesterdayStartSec && (r.taken_at ?? 0) < yesterdayEndSec,
+  );
+  // Данные считаем свежими, если последний синк был не раньше вчерашнего дня
+  const syncFreshEnough = lastSyncAt != null && (nowMs - new Date(lastSyncAt).getTime()) < 48 * 3600_000;
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
       <div className="max-w-2xl mx-auto px-4 pt-6 pb-10">
@@ -1020,22 +1031,49 @@ export function Analytics() {
               )}
             </motion.button>
 
-            {/* ── RIGHT TOP: Роликов в базе (narrow, row 1) ────────────────── */}
+            {/* ── RIGHT TOP: Роликов / Ср.просм / Вчера (narrow, row 1) ─────── */}
             <motion.div
               className={cn(CARD, "p-4 flex flex-col justify-between")}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
             >
-              <div className="flex items-center gap-1 mb-3">
-                <Film className="w-3.5 h-3.5 text-slate-400" />
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Роликов</p>
-              </div>
+              {/* Роликов */}
               <div>
-                <p className="text-[26px] font-bold text-slate-900 leading-none tabular-nums">{stats?.totalReels || 0}</p>
-                <p className="text-[10px] text-slate-400 mt-1">в базе</p>
+                <div className="flex items-center gap-1 mb-2">
+                  <Film className="w-3 h-3 text-slate-400" />
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Роликов</p>
+                </div>
+                <p className="text-[24px] font-bold text-slate-900 leading-none tabular-nums">{stats?.totalReels || 0}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">в базе</p>
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-100">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Ср. просм.</p>
-                <p className="text-[16px] font-bold text-slate-700 tabular-nums">{fmt(stats?.avgViewsLast30Days || 0)}</p>
+
+              {/* Ср. просм */}
+              <div className="mt-3 pt-3 border-t border-slate-100/80">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Ср. просм.</p>
+                <p className="text-[15px] font-bold text-slate-700 tabular-nums">{fmt(stats?.avgViewsLast30Days || 0)}</p>
+              </div>
+
+              {/* Вчера */}
+              <div className="mt-3 pt-3 border-t border-slate-100/80">
+                <div className="flex items-center gap-1 mb-1">
+                  <CalendarDays className="w-3 h-3 text-slate-400" />
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Вчера</p>
+                </div>
+                {syncFreshEnough ? (
+                  <>
+                    <p className="text-[18px] font-bold text-slate-900 leading-none tabular-nums">{videosYesterday.length}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {videosYesterday.length === 1 ? 'ролик' : videosYesterday.length >= 2 && videosYesterday.length <= 4 ? 'ролика' : 'роликов'}
+                    </p>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowSyncModal(true)}
+                    className="flex items-center gap-1 mt-0.5 group"
+                  >
+                    <RefreshCw className="w-3 h-3 text-indigo-400 group-hover:rotate-180 transition-transform duration-500" />
+                    <p className="text-[10px] text-indigo-400 font-medium leading-snug">Обнови,{'\n'}чтобы увидеть</p>
+                  </button>
+                )}
               </div>
             </motion.div>
 
