@@ -76,66 +76,110 @@ function GreySphere({ size = 56 }: { size?: number }) {
 
 const CARD = "bg-white/80 backdrop-blur-[24px] border border-white/70 rounded-3xl shadow-[0_2px_20px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.8)]";
 
+/** Маленькая стат-карточка: label сверху, большое число снизу */
 function StatCell({ icon, label, value, sub, accent = '#64748b' }: {
   icon: React.ReactNode; label: string; value: string | number; sub?: string; accent?: string;
 }) {
   return (
     <motion.div
-      className={cn(CARD, "p-4 flex flex-col justify-between min-h-[96px]")}
+      className={cn(CARD, "p-4 flex flex-col justify-between")}
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 mb-3">
         <span style={{ color: accent }}>{icon}</span>
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider truncate">{label}</p>
       </div>
       <div>
-        <p className="text-[30px] font-bold text-slate-900 tracking-tight leading-none tabular-nums">
+        <p className="text-[26px] font-bold text-slate-900 tracking-tight leading-none tabular-nums">
           {typeof value === 'number' ? fmt(value) : value}
         </p>
-        {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+        {sub && <p className="text-[11px] text-slate-400 mt-1">{sub}</p>}
       </div>
     </motion.div>
   );
 }
 
-function BestReelCell({ icon, label, reel, accent, onClick }: {
+/** Большая карточка «лучший рилс» — занимает всю высоту левой колонки */
+function HeroReelCell({ icon, label, reel, accent, onClick }: {
+  icon: React.ReactNode; label: string; reel: ProjectReel; accent: string; onClick: () => void;
+}) {
+  const takenAt = reel.taken_at
+    ? new Date(reel.taken_at * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+    : null;
+  return (
+    <motion.button
+      onClick={onClick}
+      className={cn(CARD, "relative overflow-hidden text-left w-full h-full flex flex-col active:scale-[0.97]")}
+      style={{ minHeight: 260 }}
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+      whileTap={{ scale: 0.97 }}
+    >
+      {/* Full thumbnail background */}
+      <div className="absolute inset-0">
+        {reel.thumbnail_url ? (
+          <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+            <Film className="w-10 h-10 text-slate-300" />
+          </div>
+        )}
+        <div className="absolute inset-0" style={{
+          background: 'linear-gradient(to top, rgba(9,11,18,0.90) 0%, rgba(20,24,34,0.55) 45%, rgba(32,36,44,0.15) 75%, transparent 100%)',
+        }} />
+      </div>
+
+      {/* Top label badge */}
+      <div className="relative p-3.5 flex-shrink-0">
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold text-white border border-white/20 backdrop-blur-sm"
+          style={{ background: accent + 'cc' }}
+        >
+          {icon}{label}
+        </span>
+      </div>
+
+      {/* Bottom info */}
+      <div className="relative mt-auto p-3.5">
+        <p className="text-[28px] font-bold text-white leading-none tracking-tight tabular-nums mb-1">
+          {fmt(reel.latest_view_count ?? 0)}
+        </p>
+        <p className="text-[11px] text-white/60 mb-1.5">просмотров</p>
+        <p className="text-[12px] text-white/80 line-clamp-2 leading-snug">
+          {reel.caption || 'Без подписи'}
+        </p>
+        {takenAt && <p className="text-[10px] text-white/40 mt-1">{takenAt}</p>}
+      </div>
+    </motion.button>
+  );
+}
+
+/** Компактная карточка «лучший рилс» — маленький формат для правой колонки */
+function CompactReelCell({ icon, label, reel, accent, onClick }: {
   icon: React.ReactNode; label: string; reel: ProjectReel; accent: string; onClick: () => void;
 }) {
   return (
     <motion.button
       onClick={onClick}
-      className={cn(CARD, "p-4 text-left flex flex-col gap-3 active:scale-[0.97] transition-transform")}
-      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+      className={cn(CARD, "p-3 text-left flex items-center gap-3 active:scale-[0.97] transition-transform w-full")}
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       whileTap={{ scale: 0.97 }}
     >
-      {/* Thumbnail */}
-      <div className="relative w-full rounded-2xl overflow-hidden bg-slate-100" style={{ aspectRatio: '9/5' }}>
+      {/* Mini thumbnail */}
+      <div className="relative w-10 h-[56px] rounded-xl overflow-hidden flex-shrink-0 bg-slate-100">
         {reel.thumbnail_url ? (
           <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Film className="w-6 h-6 text-slate-300" />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        <div className="absolute bottom-2 left-2">
-          <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white border border-white/20 backdrop-blur-sm"
-            style={{ background: accent + '99' }}
-          >
-            <Eye className="w-2.5 h-2.5" />{fmt(reel.latest_view_count ?? 0)}
-          </span>
-        </div>
+        ) : <Film className="w-4 h-4 text-slate-300 m-auto mt-4" />}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
       </div>
-      {/* Label + caption */}
-      <div>
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1 mb-0.5">
-          <span style={{ color: accent }}>{icon}</span>
-          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: accent }}>{label}</p>
+          <span style={{ color: accent }} className="flex-shrink-0">{icon}</span>
+          <p className="text-[9px] font-bold uppercase tracking-wider truncate" style={{ color: accent }}>{label}</p>
         </div>
-        <p className="text-[12px] text-slate-600 line-clamp-2 leading-snug">
-          {reel.caption || 'Без подписи'}
+        <p className="text-[15px] font-bold text-slate-900 leading-none tabular-nums">
+          {fmt(reel.latest_view_count ?? 0)}
         </p>
+        <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{reel.caption || 'Без подписи'}</p>
       </div>
     </motion.button>
   );
@@ -904,35 +948,68 @@ export function Analytics() {
           className="space-y-3"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
         >
-          {/* Row 1: Stat chips */}
-          <div className="grid grid-cols-2 gap-3">
-            <StatCell icon={<Film className="w-3.5 h-3.5" />} label="Роликов" value={stats?.totalReels || 0} sub="в базе" accent="#64748b" />
-            <StatCell icon={<Eye className="w-3.5 h-3.5" />} label="Ср. просм./ролик" value={stats?.avgViewsLast30Days || 0} sub="за 30 дней" accent="#6366f1" />
-          </div>
-
-          {/* Row 2: Best reels (2 col) */}
-          {(stats?.bestReelWeek || stats?.bestReelMonth) && (
-            <div className="grid grid-cols-2 gap-3">
-              {stats.bestReelWeek && (
-                <BestReelCell
-                  icon={<Award className="w-3 h-3" />}
-                  label="Лучший недели"
-                  reel={stats.bestReelWeek}
-                  accent="#f59e0b"
-                  onClick={() => setSelectedReel(stats.bestReelWeek!)}
-                />
-              )}
-              {stats.bestReelMonth && (
-                <BestReelCell
+          {/*
+           * Асимметричный бенто-грид:
+           *
+           *  [ Hero reel (лучший месяца) ]  [ Роликов        ]
+           *  [ — tall, spans 3 rows     ]  [ Ср. просм/ролик ]
+           *                                 [ Лучший недели   ]
+           *
+           * cols: 3fr  2fr
+           */}
+          <div
+            className="grid gap-3"
+            style={{ gridTemplateColumns: '3fr 2fr', gridTemplateRows: 'auto auto auto' }}
+          >
+            {/* LEFT: Hero — лучший рилс месяца, занимает 3 строки */}
+            {stats?.bestReelMonth ? (
+              <div style={{ gridRow: '1 / 4' }}>
+                <HeroReelCell
                   icon={<TrendingUp className="w-3 h-3" />}
                   label="Лучший месяца"
                   reel={stats.bestReelMonth}
                   accent="#10b981"
                   onClick={() => setSelectedReel(stats.bestReelMonth!)}
                 />
-              )}
-            </div>
-          )}
+              </div>
+            ) : (
+              <div style={{ gridRow: '1 / 4' }} className={cn(CARD, "flex items-center justify-center min-h-[260px]")}>
+                <TrendingUp className="w-8 h-8 text-slate-200" />
+              </div>
+            )}
+
+            {/* RIGHT col: 3 карточки разной высоты */}
+            {/* R1: Роликов в базе */}
+            <StatCell
+              icon={<Film className="w-3.5 h-3.5" />}
+              label="Роликов"
+              value={stats?.totalReels || 0}
+              sub="в базе"
+              accent="#64748b"
+            />
+            {/* R2: Ср. просм./ролик */}
+            <StatCell
+              icon={<Eye className="w-3.5 h-3.5" />}
+              label="Ср. просм./ролик"
+              value={stats?.avgViewsLast30Days || 0}
+              sub="за 30 дней"
+              accent="#6366f1"
+            />
+            {/* R3: Лучший рилс недели — компактная карточка */}
+            {stats?.bestReelWeek ? (
+              <CompactReelCell
+                icon={<Award className="w-3 h-3" />}
+                label="Лучший недели"
+                reel={stats.bestReelWeek}
+                accent="#f59e0b"
+                onClick={() => setSelectedReel(stats.bestReelWeek!)}
+              />
+            ) : (
+              <div className={cn(CARD, "flex items-center justify-center p-3")}>
+                <Award className="w-5 h-5 text-slate-200" />
+              </div>
+            )}
+          </div>
 
           {/* Row 3: Charts card — clickable tile */}
           <motion.button
