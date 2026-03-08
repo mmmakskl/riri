@@ -163,45 +163,80 @@ export function useProjectAnalytics(projectId: string | null) {
       if (userId) await setUserContext(userId);
 
       const snapshotTime = new Date().toISOString();
+      let savedCount = 0;
+      let firstError: unknown = null;
 
-      // Upsert reels + create snapshots
+      // Process reels one by one — upsert then fetch id to avoid .single() issues
       for (const reel of data.reels) {
-        // Upsert reel
-        const { data: upsertedReel, error: reelError } = await supabase
-          .from('project_reels')
-          .upsert({
-            project_id: projectId,
-            shortcode: reel.shortcode,
-            instagram_id: reel.id,
-            thumbnail_url: reel.thumbnail_url,
-            video_url: reel.url,
-            caption: reel.caption,
-            taken_at: reel.taken_at ? Number(reel.taken_at) : null,
-            updated_at: snapshotTime,
-          }, { onConflict: 'project_id,shortcode' })
-          .select('id')
-          .single();
+        try {
+          // Step 1: upsert the reel row (no .single() — it can fail on no-change upserts)
+          const { error: upsertError } = await supabase
+            .from('project_reels')
+            .upsert({
+              project_id: projectId,
+              shortcode: reel.shortcode,
+              instagram_id: reel.id,
+              thumbnail_url: reel.thumbnail_url,
+              video_url: reel.url,
+              caption: reel.caption,
+              taken_at: reel.taken_at ? Number(reel.taken_at) : null,
+              updated_at: snapshotTime,
+            }, { onConflict: 'project_id,shortcode' });
 
-        if (reelError || !upsertedReel) {
-          console.error('Error upserting reel:', reelError);
-          continue;
+          if (upsertError) {
+            console.error('Upsert error for', reel.shortcode, ':', upsertError);
+            if (!firstError) firstError = upsertError;
+            continue;
+          }
+
+          // Step 2: fetch the reel id (handles both insert and update cases)
+          const { data: reelRow, error: fetchError } = await supabase
+            .from('project_reels')
+            .select('id')
+            .eq('project_id', projectId)
+            .eq('shortcode', reel.shortcode)
+            .single();
+
+          if (fetchError || !reelRow) {
+            console.error('Fetch reel id error for', reel.shortcode, ':', fetchError);
+            continue;
+          }
+
+          // Step 3: insert snapshot
+          const { error: snapError } = await supabase
+            .from('reel_metrics_snapshots')
+            .insert({
+              reel_id: reelRow.id,
+              project_id: projectId,
+              view_count: reel.view_count || 0,
+              like_count: reel.like_count || 0,
+              comment_count: reel.comment_count || 0,
+              snapshotted_at: snapshotTime,
+            });
+
+          if (snapError) {
+            console.error('Snapshot insert error for', reel.shortcode, ':', snapError);
+          } else {
+            savedCount++;
+          }
+        } catch (reelErr) {
+          console.error('Unexpected error for reel', reel.shortcode, ':', reelErr);
         }
-
-        // Insert snapshot
-        await supabase.from('reel_metrics_snapshots').insert({
-          reel_id: upsertedReel.id,
-          project_id: projectId,
-          view_count: reel.view_count || 0,
-          like_count: reel.like_count || 0,
-          comment_count: reel.comment_count || 0,
-          snapshotted_at: snapshotTime,
-        });
       }
 
-      toast.success(`Синхронизировано ${data.reels.length} роликов`);
-      setLastSyncAt(snapshotTime);
+      if (savedCount === 0 && firstError) {
+        const errMsg = (firstError as { message?: string })?.message || 'Ошибка базы данных';
+        toast.error(`Не удалось сохранить данные: ${errMsg}`);
+        return;
+      }
 
-      // Reload data
+      if (savedCount > 0) {
+        toast.success(`Сохранено ${savedCount} из ${data.reels.length} роликов`);
+      } else {
+        toast.warning('Ролики получены, но не сохранились. Проверьте что SQL-миграция запущена.');
+      }
+
+      setLastSyncAt(snapshotTime);
       await loadAnalytics();
     } catch (err) {
       console.error('Sync error:', err);

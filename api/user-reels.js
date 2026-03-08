@@ -76,21 +76,36 @@ export default async function handler(req, res) {
 
       const data = await response.json();
 
-      // Log only on first page to avoid noise
-      if (page === 0) {
-        console.log('API response keys:', Object.keys(data));
-        console.log('API response preview:', JSON.stringify(data).slice(0, 500));
+      // Always log structure so we can debug pagination cursor location
+      console.log(`Page ${page + 1} top-level keys:`, Object.keys(data));
+      if (data?.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
+        console.log(`Page ${page + 1} data keys:`, Object.keys(data.data));
       }
+      console.log(`Page ${page + 1} preview:`, JSON.stringify(data).slice(0, 800));
 
       const items = parseItems(data);
+      console.log(`Page ${page + 1} items count:`, items.length);
       if (items.length === 0) { console.log(`No items on page ${page + 1}`); break; }
 
       const reels = items.filter(filterPinned).map(mapReel).filter(r => r.shortcode);
       allReels.push(...reels);
 
-      nextCursor = data?.data?.next_cursor || data?.next_cursor || data?.pagination_token || null;
+      // Try every known cursor field name
+      nextCursor =
+        data?.data?.next_cursor ||
+        data?.data?.next_max_id ||
+        data?.data?.end_cursor ||
+        data?.data?.paging_info?.max_id ||
+        data?.next_cursor ||
+        data?.next_max_id ||
+        data?.pagination_token ||
+        data?.cursor ||
+        null;
+
+      console.log(`Page ${page + 1} next_cursor:`, nextCursor);
+
       if (!nextCursor && page < pagesNeeded - 1) {
-        console.log('No next_cursor, stopping pagination');
+        console.log('No cursor found, stopping pagination');
         break;
       }
 
