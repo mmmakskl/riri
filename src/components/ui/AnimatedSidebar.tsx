@@ -171,6 +171,7 @@ interface SidebarLinkProps {
   /** Кастомный элемент справа (например, баланс коинов) */
   rightElement?: ReactNode;
   variant?: 'default' | 'danger';
+  disabled?: boolean;
   className?: string;
 }
 
@@ -182,29 +183,33 @@ export const SidebarLink = ({
   badge,
   rightElement,
   variant = 'default',
+  disabled = false,
   className,
 }: SidebarLinkProps) => {
   const { open, animate } = useSidebar();
   
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       className={cn(
         "flex items-center gap-2 py-1.5 min-h-[44px] rounded-2xl transition-all w-full text-left group/sidebar touch-manipulation",
         "font-medium",
         open ? "px-2.5" : "px-2 justify-center",
-        isActive 
-          ? "bg-white/90 text-slate-900 border border-white/80 shadow-[0_2px_12px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]" 
-          : variant === 'danger'
-            ? "text-accent-negative hover:bg-white/60 hover:shadow-glass-sm"
-            : "text-slate-600 hover:bg-white/60 hover:text-slate-800 hover:shadow-glass-sm",
+        disabled
+          ? "opacity-35 cursor-not-allowed"
+          : isActive 
+            ? "bg-white/90 text-slate-900 border border-white/80 shadow-[0_2px_12px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]" 
+            : variant === 'danger'
+              ? "text-accent-negative hover:bg-white/60 hover:shadow-glass-sm"
+              : "text-slate-600 hover:bg-white/60 hover:text-slate-800 hover:shadow-glass-sm",
         className
       )}
     >
       <div className={cn(
         "flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-xl transition-all",
-        isActive && "bg-slate-100/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.06)]",
-        !open && isActive && "bg-white/80"
+        !disabled && isActive && "bg-slate-100/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.06)]",
+        !open && !disabled && isActive && "bg-white/80"
       )}>
         {React.cloneElement(icon as React.ReactElement, { 
           className: "w-3.5 h-3.5",
@@ -219,7 +224,7 @@ export const SidebarLink = ({
         transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
         className={cn(
           "text-sm font-medium whitespace-nowrap overflow-hidden font-heading tracking-[-0.01em]",
-          "group-hover/sidebar:translate-x-0.5 transition-transform duration-150"
+          !disabled && "group-hover/sidebar:translate-x-0.5 transition-transform duration-150"
         )}
       >
         {label}

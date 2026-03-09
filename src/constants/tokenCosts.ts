@@ -30,7 +30,9 @@ export type TokenAction =
   | 'sw_quick'
   | 'analytics_sync_12'
   | 'analytics_sync_24'
-  | 'analytics_sync_36';
+  | 'analytics_sync_36'
+  | 'analytics_sync_48'
+  | 'analytics_sync_60';
 
 /** Базовые стоимости в коинах */
 const TOKEN_COSTS: Record<Exclude<TokenAction, 'radar_refresh_all'>, number> = {
