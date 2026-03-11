@@ -187,6 +187,74 @@ export async function fetchAndCalculateProfileStats(username: string): Promise<I
 }
 
 /**
+ * Рассчитать и сохранить статистику профиля из уже загруженных роликов.
+ * Используется чтобы не делать повторный API-запрос когда ролики уже есть.
+ */
+export async function saveProfileStatsFromReels(
+  username: string,
+  reels: Array<{ view_count?: number; play_count?: number; like_count?: number; comment_count?: number }>
+): Promise<InstagramProfileStats | null> {
+  const cleanUsername = username.toLowerCase().replace('@', '');
+  if (!reels || reels.length === 0) return null;
+
+  const mapped: ReelStats[] = reels.map(r => ({
+    view_count: (r as any).play_count || r.view_count || 0,
+    like_count: r.like_count || 0,
+    comment_count: r.comment_count || 0,
+  }));
+
+  const views = mapped.map(r => r.view_count).filter(v => v > 0);
+  const likes = mapped.map(r => r.like_count).filter(v => v > 0);
+  const comments = mapped.map(r => r.comment_count).filter(v => v > 0);
+
+  const sortedViews = [...views].sort((a, b) => a - b);
+  const bottom3Views = sortedViews.slice(0, Math.min(3, sortedViews.length));
+  const avgBottom3Views = bottom3Views.length > 0
+    ? Math.floor(bottom3Views.reduce((a, b) => a + b, 0) / bottom3Views.length)
+    : 0;
+
+  const sortedLikes = [...likes].sort((a, b) => a - b);
+  const bottom3Likes = sortedLikes.slice(0, Math.min(3, sortedLikes.length));
+  const avgBottom3Likes = bottom3Likes.length > 0
+    ? Math.floor(bottom3Likes.reduce((a, b) => a + b, 0) / bottom3Likes.length)
+    : 0;
+
+  const stats = {
+    videos_analyzed: mapped.length,
+    avg_views: calculateAverage(views),
+    median_views: calculateMedian(views),
+    min_views: views.length > 0 ? Math.min(...views) : 0,
+    max_views: views.length > 0 ? Math.max(...views) : 0,
+    avg_bottom3_views: avgBottom3Views,
+    avg_bottom3_likes: avgBottom3Likes,
+    avg_likes: calculateAverage(likes),
+    median_likes: calculateMedian(likes),
+    avg_comments: calculateAverage(comments),
+  };
+
+  try {
+    const { data: savedProfile, error } = await supabase
+      .from('instagram_profiles')
+      .upsert({
+        username: cleanUsername,
+        ...stats,
+        stats_updated_at: new Date().toISOString(),
+      }, { onConflict: 'username' })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[ProfileStats] Error saving stats from reels:', error);
+      return null;
+    }
+    return savedProfile;
+  } catch (err) {
+    console.error('[ProfileStats] Exception saving stats from reels:', err);
+    return null;
+  }
+}
+
+/**
  * Получить или обновить статистику профиля
  * Если статистика старше 7 дней или отсутствует - обновляем
  */

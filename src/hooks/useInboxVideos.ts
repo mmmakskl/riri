@@ -826,35 +826,56 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
    */
   const refreshThumbnail = useCallback(async (videoId: string, shortcode: string, silent = false) => {
     try {
-      const res = await fetch('/api/reel-info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shortcode }),
-      });
-      const data = await res.json();
-      const thumbUrl = data?.thumbnail_url || data?.carousel_slides?.[0];
-      if (!thumbUrl) {
-        if (!silent) toast.error('Не удалось получить превью');
-        return;
+      // Сначала проверяем таблицу videos (общая для всего проекта) — другой участник мог уже
+      // сохранить превью в Storage. Если там есть supabase.co URL — используем его без API вызова.
+      const { data: globalVideo } = await supabase
+        .from('videos')
+        .select('thumbnail_url')
+        .eq('shortcode', shortcode)
+        .maybeSingle();
+
+      const existingStorageUrl = globalVideo?.thumbnail_url?.includes('supabase.co')
+        ? globalVideo.thumbnail_url
+        : null;
+
+      let storageUrl = existingStorageUrl;
+
+      if (!storageUrl) {
+        // В общей таблице нет storage URL — идём в RapidAPI
+        const res = await fetch('/api/reel-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shortcode }),
+        });
+        const data = await res.json();
+        const thumbUrl = data?.thumbnail_url || data?.carousel_slides?.[0];
+        if (!thumbUrl) {
+          if (!silent) toast.error('Не удалось получить превью');
+          return;
+        }
+        const saveRes = await fetch('/api/save-media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'thumbnail', url: thumbUrl, shortcode }),
+        });
+        const saveData = await saveRes.json();
+        if (!saveData.success || !saveData.storageUrl) {
+          if (!silent) toast.error('Не удалось сохранить превью');
+          return;
+        }
+        storageUrl = saveData.storageUrl;
+        // Обновляем глобальную таблицу чтобы следующие участники тоже нашли готовый URL
+        await supabase
+          .from('videos')
+          .update({ thumbnail_url: storageUrl })
+          .eq('shortcode', shortcode);
       }
-      const saveRes = await fetch('/api/save-media', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'thumbnail', url: thumbUrl, shortcode }),
-      });
-      const saveData = await saveRes.json();
-      if (!saveData.success || !saveData.storageUrl) {
-        if (!silent) toast.error('Не удалось сохранить превью');
-        return;
-      }
+
       await supabase
         .from('saved_videos')
-        .update({ thumbnail_url: saveData.storageUrl })
+        .update({ thumbnail_url: storageUrl })
         .eq('id', videoId);
-      await supabase
-        .from('videos')
-        .update({ thumbnail_url: saveData.storageUrl })
-        .eq('shortcode', shortcode);
+
       if (!silent) toast.success('Превью обновлено');
       fetchVideos();
     } catch {

@@ -7,6 +7,9 @@ import {
 } from '../services/globalVideoService';
 import {
   getOrUpdateProfileStats,
+  saveProfileStatsFromReels,
+  shouldUpdateStats,
+  getProfileStats,
   InstagramProfileStats,
 } from '../services/profileStatsService';
 
@@ -449,27 +452,10 @@ export function useRadar(
       }
     }
     
-    // Сразу загружаем рилсы для нового профиля
+    // fetchUserReels загружает ролики и сразу рассчитывает статистику профиля из них
     if (userId) {
       fetchUserReels(cleanUsername, targetProjectId);
     }
-    
-    // Загружаем статистику профиля (асинхронно, не блокируя)
-    getOrUpdateProfileStats(cleanUsername).then(stats => {
-      if (stats) {
-        setProfileStatsCache(prev => new Map(prev).set(cleanUsername, stats));
-        setProfiles(prev => prev.map(p => 
-          p.username.toLowerCase() === cleanUsername && p.projectId === targetProjectId
-            ? { ...p, profileStats: stats }
-            : p
-        ));
-        console.log(`[Radar] Profile stats loaded for @${cleanUsername}:`, {
-          avg_views: stats.avg_views,
-          median_views: stats.median_views,
-          videos_analyzed: stats.videos_analyzed,
-        });
-      }
-    });
     
     return true;
   }, [profiles, currentProjectId, userId]);
@@ -630,6 +616,22 @@ export function useRadar(
           await updateQuery;
         }
 
+        // Рассчитываем статистику профиля из уже полученных роликов — без доп. API запроса.
+        // Обновляем только если данные устарели (>7 дней) или отсутствуют.
+        const existingStats = await getProfileStats(cleanUsername);
+        if (!existingStats || shouldUpdateStats(existingStats)) {
+          saveProfileStatsFromReels(cleanUsername, data.reels).then(stats => {
+            if (stats) {
+              setProfileStatsCache(prev => new Map(prev).set(cleanUsername, stats));
+              setProfiles(prev => prev.map(p =>
+                p.username.toLowerCase() === cleanUsername && p.projectId === targetProjectId
+                  ? { ...p, profileStats: stats }
+                  : p
+              ));
+            }
+          });
+        }
+
         // Возвращаем ВСЕ видео профиля (не только последние 6)
         return data.reels.map((reel: any) => ({
           ...reel,
@@ -704,10 +706,8 @@ export function useRadar(
     
     for (const profile of projectProfiles) {
       console.log('[Radar] Fetching reels for:', profile.username);
+      // fetchUserReels теперь сам считает статистику из полученных данных — доп. вызова не нужно
       await fetchUserReels(profile.username, profile.projectId);
-      
-      // Обновляем статистику профиля (раз в 7 дней автоматически)
-      await updateProfileStats(profile.username);
       
       // Небольшая задержка между запросами
       await new Promise(r => setTimeout(r, 1000));
@@ -715,7 +715,7 @@ export function useRadar(
     
     setLoading(false);
     console.log('[Radar] refreshAll completed');
-  }, [projectProfiles, loading, fetchUserReels, userId, currentProjectId, updateProfileStats]);
+  }, [projectProfiles, loading, fetchUserReels, userId, currentProjectId]);
 
   // Очистить профили текущего проекта
   const clearProject = useCallback(async () => {
