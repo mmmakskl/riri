@@ -98,10 +98,10 @@ export function UsageStats() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/usage-stats', {
+      const res = await fetch('/api/project', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.telegram_username, period }),
+        body: JSON.stringify({ action: 'usage-stats', userId: user?.telegram_username, period }),
       });
       const json = await res.json();
       if (!res.ok) {

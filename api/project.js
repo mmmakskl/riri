@@ -1,8 +1,9 @@
-// Vercel Serverless Function — invite, remove, role в один endpoint (лимит 12 на Hobby)
+// Vercel Serverless Function — invite, remove, role, usage-stats в один endpoint (лимит 12 на Hobby)
 // POST { action: 'invite', projectId, username, userId, role? }
 // POST { action: 'invite', projectId, email, userId, role? }
 // POST { action: 'remove', projectId, memberId, userId }
 // POST { action: 'role', projectId, memberId, role, userId }
+// POST { action: 'usage-stats', userId, period? }
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
@@ -74,8 +75,9 @@ export default async function handler(req, res) {
   if (action === 'invite') return handleInvite(req, res, supabase);
   if (action === 'remove') return handleRemove(req, res, supabase);
   if (action === 'role') return handleRole(req, res, supabase);
+  if (action === 'usage-stats') return handleUsageStats(req, res, supabaseUrl, supabaseServiceKey);
 
-  return res.status(400).json({ error: 'Unknown action', expected: ['invite', 'remove', 'role'] });
+  return res.status(400).json({ error: 'Unknown action', expected: ['invite', 'remove', 'role', 'usage-stats'] });
 }
 
 async function sendInviteEmailNotification(projectName, email, memberId) {
@@ -238,5 +240,48 @@ async function handleRole(req, res, supabase) {
   } catch (err) {
     console.error('[Project role]', err);
     return res.status(500).json({ error: err.message });
+  }
+}
+
+const ADMIN_USERNAME = 'sergeyzolotykh';
+
+async function handleUsageStats(req, res, supabaseUrl, supabaseServiceKey) {
+  const { userId, period } = req.body || {};
+
+  if (!userId || userId.toLowerCase() !== ADMIN_USERNAME.toLowerCase()) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    let dateFilter = '';
+    if (period && period !== 'all') {
+      const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      dateFilter = `&created_at=gte.${since.toISOString()}`;
+    }
+
+    const url = `${supabaseUrl}/rest/v1/api_usage_log?select=*&order=created_at.desc&limit=5000${dateFilter}`;
+    const response = await fetch(url, {
+      headers: {
+        'apikey': supabaseServiceKey,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      if (response.status === 404 || text.includes('does not exist')) {
+        return res.status(404).json({ error: 'table_not_found', message: 'Запусти create_api_usage_log.sql в Supabase SQL Editor' });
+      }
+      return res.status(500).json({ error: 'Supabase query failed', details: text });
+    }
+
+    const data = await response.json();
+    return res.status(200).json({ success: true, rows: data });
+  } catch (err) {
+    console.error('[usage-stats]', err?.message);
+    return res.status(500).json({ error: err?.message || 'Internal error' });
   }
 }
