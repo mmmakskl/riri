@@ -1,5 +1,6 @@
 // Vercel Serverless Function — перевод через OpenRouter (Gemini) или бесплатный Google Translate
 import { callOpenRouter, MODELS } from '../lib/openRouter.js';
+import { logApiCall } from '../lib/logApiCall.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { text, to = 'ru' } = req.body;
+  const { text, to = 'ru', userId, projectId } = req.body;
 
   if (!text) {
     return res.status(400).json({ error: 'text is required' });
@@ -41,6 +42,7 @@ export default async function handler(req, res) {
         throw new Error('OpenRouter returned empty translation');
       }
 
+      logApiCall({ apiName: 'openrouter', action: 'translate', userId, projectId, metadata: { to, chars: text.length } });
       return res.status(200).json({
         success: true,
         original: text,

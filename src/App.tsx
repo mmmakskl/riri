@@ -8,6 +8,7 @@ import { History } from './components/History';
 import { AIScriptwriter } from './components/AIScriptwriter';
 import { ProfilePage } from './components/ProfilePage';
 import { Analytics } from './components/Analytics';
+import { UsageStats } from './components/UsageStats';
 import { IncomingVideosDrawer } from './components/sidebar/IncomingVideosDrawer';
 import { SearchPanel, HIDE_SEARCH_BY_WORD } from './components/ui/SearchPanel';
 import { ProjectMembersModal } from './components/ui/ProjectMembersModal';
@@ -25,7 +26,7 @@ import { ProjectProvider, useProjectContext } from './contexts/ProjectContext';
 import type { Project } from './hooks/useProjects';
 import { 
   Settings, Search, LayoutGrid, User, LogOut, 
-  Radar, Plus, X, Palette, Sparkles, Trash2, Users, Menu, Home, BarChart2
+  Radar, Plus, X, Palette, Sparkles, Trash2, Users, Menu, Home, BarChart2, Activity
 } from 'lucide-react';
 import { GlassFolderIcon } from './components/ui/GlassFolderIcons';
 import { MobileBottomBar, type MobileTabId } from './components/ui/MobileBottomBar';
@@ -33,7 +34,7 @@ import { cn } from './utils/cn';
 import { Toaster, toast } from 'sonner';
 
 
-type ViewMode = 'dashboard' | 'workspace' | 'canvas' | 'history' | 'profile' | 'scriptwriter' | 'analytics';
+type ViewMode = 'dashboard' | 'workspace' | 'canvas' | 'history' | 'profile' | 'scriptwriter' | 'analytics' | 'usage';
 type SearchTab = 'search' | 'link' | 'radar';
 
 // Цвета для проектов
@@ -663,6 +664,12 @@ function AppContent() {
                   onClick={() => setViewMode('scriptwriter')}
                   isActive={viewMode === 'scriptwriter'}
                 />
+                <SidebarLink
+                  icon={<Activity className="w-4 h-4" strokeWidth={2.5} />}
+                  label="Статистика API"
+                  onClick={() => setViewMode('usage')}
+                  isActive={viewMode === 'usage'}
+                />
               </div>
             </SidebarSection>
             
@@ -799,6 +806,7 @@ function AppContent() {
             {viewMode === 'analytics' && <Analytics />}
             {viewMode === 'history' && <History />}
             {viewMode === 'profile' && <ProfilePage />}
+            {viewMode === 'usage' && <UsageStats />}
           </motion.div>
         </AnimatePresence>
       </div>

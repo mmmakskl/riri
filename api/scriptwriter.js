@@ -1,6 +1,7 @@
 // Vercel Serverless — ИИ-сценарист: глубокий анализ структуры, генерация по теме/референсу, чат, проверка схожести.
 
 import { callOpenRouter, MODELS, MODELS_FALLBACK } from '../lib/openRouter.js';
+import { logApiCall } from '../lib/logApiCall.js';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -14,6 +15,8 @@ export default async function handler(req, res) {
 
   const body = req.body || {};
   const action = body.action;
+
+  logApiCall({ apiName: 'openrouter', action: `scriptwriter-${action || 'unknown'}`, userId: body.userId, projectId: body.projectId });
 
   switch (action) {
     case 'analyze-structure':

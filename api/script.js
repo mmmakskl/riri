@@ -1,6 +1,7 @@
 // Vercel Serverless — стиль сценария: анализ примеров ИЛИ генерация по промту (OpenRouter/Gemini).
 
 import { callOpenRouter, MODELS, MODELS_FALLBACK } from '../lib/openRouter.js';
+import { logApiCall } from '../lib/logApiCall.js';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -18,6 +19,9 @@ export default async function handler(req, res) {
   const hasRefine = body.feedback && typeof body.prompt === 'string' && typeof body.transcript_text === 'string' && typeof body.script_text === 'string';
   const hasRefineByDiff = body.script_ai != null && body.script_human != null && typeof body.prompt === 'string' && typeof body.transcript_text === 'string';
   const hasChat = body.action === 'chat' && Array.isArray(body.messages) && body.messages.length > 0 && typeof body.prompt === 'string';
+
+  const scriptAction = hasExamples ? 'script-analyze' : hasRefineByDiff ? 'script-refine-diff' : hasRefine ? 'script-refine' : hasGenerate ? 'script-generate' : hasChat ? 'script-chat' : 'script-unknown';
+  logApiCall({ apiName: 'openrouter', action: scriptAction, userId: body.userId, projectId: body.projectId, metadata: { examplesCount: body.examples?.length } });
 
   if (hasExamples) return handleAnalyze(req, res);
   if (hasRefineByDiff) return handleRefineByDiff(req, res);

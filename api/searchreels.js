@@ -1,4 +1,6 @@
 // Vercel Serverless Function - прокси для RapidAPI
+import { logApiCall } from '../lib/logApiCall.js';
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -9,7 +11,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { keyword } = req.query;
+  const { keyword, userId, projectId } = req.query;
 
   if (!keyword) {
     return res.status(400).json({ error: 'keyword is required' });
@@ -36,6 +38,7 @@ export default async function handler(req, res) {
     
     console.log('Reels response items:', Array.isArray(data?.data) ? data.data.length : 'not array');
     
+    logApiCall({ apiName: 'rapidapi', action: 'search', userId, projectId, metadata: { keyword } });
     return res.status(200).json(data);
   } catch (error) {
     console.error('API Error:', error);

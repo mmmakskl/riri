@@ -1,4 +1,6 @@
 // Vercel Serverless Function - прокси для RapidAPI hashtag search
+import { logApiCall } from '../lib/logApiCall.js';
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -9,7 +11,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { hashtag } = req.query;
+  const { hashtag, userId, projectId } = req.query;
 
   if (!hashtag) {
     return res.status(400).json({ error: 'hashtag is required' });
@@ -39,7 +41,7 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     console.log('Hashtag API response keys:', Object.keys(data));
-    
+    logApiCall({ apiName: 'rapidapi', action: 'hashtag', userId, projectId, metadata: { hashtag } });
     return res.status(200).json(data);
   } catch (error) {
     console.error('API Error:', error);

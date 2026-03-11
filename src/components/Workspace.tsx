@@ -267,13 +267,27 @@ export function Workspace(_props?: WorkspaceProps) {
     prevContentSectionRef.current = contentSection;
   }, [contentSection]);
 
+  // Набор ID каруселей, для которых уже запущен refresh превью
+  const queuedCarouselThumbnailIds = useRef<Set<string>>(new Set());
+  const prevCarouselsSectionRef2 = useRef<string>('');
+  useEffect(() => {
+    if (contentSection === 'carousels' && prevCarouselsSectionRef2.current !== 'carousels') {
+      queuedCarouselThumbnailIds.current.clear();
+    }
+    prevCarouselsSectionRef2.current = contentSection;
+  }, [contentSection]);
+
   // Проактивная подгрузка превью для каруселей с пустым thumbnail (добавлено другим юзером)
   useEffect(() => {
     if (contentSection !== 'carousels' || !refreshCarouselThumbnail) return;
     const needRefresh = carousels.filter(
       c => !c.thumbnail_url?.trim() && (!c.slide_urls?.length || c.slide_urls.length === 0) && c.shortcode
+        && !queuedCarouselThumbnailIds.current.has(String(c.id))
     ).slice(0, 8);
-    needRefresh.forEach(c => refreshCarouselThumbnail(c.id, c.shortcode));
+    needRefresh.forEach(c => {
+      queuedCarouselThumbnailIds.current.add(String(c.id));
+      refreshCarouselThumbnail(c.id, c.shortcode);
+    });
   }, [contentSection, carousels, refreshCarouselThumbnail]);
 
   // Рост списка каруселей — ремаунтим сетку (как для рилсов), чтобы превью грузились
@@ -301,6 +315,17 @@ export function Workspace(_props?: WorkspaceProps) {
     prevCarouselFolderRef.current = folderKey;
   }, [contentSection, carouselSortBy, selectedCarouselFolderId]);
 
+  // Набор ID видео, для которых уже запущен refresh превью (предотвращает повторные запросы при каждом inboxVideos update)
+  const queuedThumbnailIds = useRef<Set<string>>(new Set());
+  // Сбрасываем очередь при смене секции
+  const prevReelsSection = useRef<string>('');
+  useEffect(() => {
+    if (contentSection === 'reels' && prevReelsSection.current !== 'reels') {
+      queuedThumbnailIds.current.clear();
+    }
+    prevReelsSection.current = contentSection;
+  }, [contentSection]);
+
   // Проактивная подгрузка превью для рилсов — как у каруселей: пустое или битое превью (добавлено другим юзером)
   useEffect(() => {
     if (contentSection !== 'reels' || !refreshThumbnail) return;
@@ -308,6 +333,7 @@ export function Workspace(_props?: WorkspaceProps) {
       const url = (v.previewUrl || v.preview_url || '').toLowerCase();
       const shortcode = v.shortcode ?? v.url?.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/)?.[1];
       if (!shortcode || String(v.id).startsWith('local-')) return false;
+      if (queuedThumbnailIds.current.has(String(v.id))) return false;
       const empty = !url?.trim();
       const broken = empty || url?.includes('instagram.com') || url?.includes('wsrv.nl') || url?.includes('cdninstagram') || url?.includes('fbcdn.net');
       const hasStorage = url?.includes('supabase.co');
@@ -315,7 +341,10 @@ export function Workspace(_props?: WorkspaceProps) {
     }).slice(0, 12);
     needRefresh.forEach((v: any) => {
       const shortcode = v.shortcode ?? v.url?.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/)?.[1];
-      if (shortcode) refreshThumbnail(v.id, shortcode, true);
+      if (shortcode) {
+        queuedThumbnailIds.current.add(String(v.id));
+        refreshThumbnail(v.id, shortcode, true);
+      }
     });
   }, [contentSection, inboxVideos, refreshThumbnail]);
 

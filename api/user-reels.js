@@ -1,5 +1,7 @@
 // Vercel Serverless Function - получение видео пользователя по username
 // Поддерживает count (12/24/36) для постраничной загрузки (аналитика)
+import { logApiCall } from '../lib/logApiCall.js';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -8,7 +10,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { username, count } = req.body;
+  const { username, count, userId, projectId } = req.body;
   if (!username) return res.status(400).json({ error: 'username is required' });
 
   const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '959a088626msh74020d3fb11ad19p1e067bjsnb273d9fac830';
@@ -125,6 +127,10 @@ export default async function handler(req, res) {
   });
 
   console.log(`Total unique reels: ${uniqueReels.length}`);
+
+  // Логируем реальное кол-во страниц (HTTP запросов к RapidAPI)
+  const pagesUsed = allReels.length > 0 ? Math.ceil(allReels.length / 12) : 1;
+  logApiCall({ apiName: 'rapidapi', action: 'user-reels', callsCount: pagesUsed, userId, projectId, metadata: { username: cleanUsername, reelsCount: uniqueReels.length, requestedCount: targetCount } });
 
   if (uniqueReels.length > 0) {
     return res.status(200).json({

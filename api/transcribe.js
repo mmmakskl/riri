@@ -1,5 +1,6 @@
 // Vercel Serverless Function - транскрибация видео через AssemblyAI, каруселей через OpenRouter (Gemini)
 import { callOpenRouter, MODELS, MODELS_FALLBACK, geminiPartToOpenRouterImage } from '../lib/openRouter.js';
+import { logApiCall } from '../lib/logApiCall.js';
 
 export default async function handler(req, res) {
   // CORS headers
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
   }
 
   const body = req.body || {};
-  const { audioUrl } = body;
+  const { audioUrl, userId, projectId } = body;
   const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls : [];
   const imagesBase64 = Array.isArray(body.images) ? body.images : [];
 
@@ -171,6 +172,7 @@ export default async function handler(req, res) {
         }
       }
       const fullText = fullTexts.join('\n\n');
+      logApiCall({ apiName: 'openrouter', action: 'transcribe-carousel', userId, projectId, metadata: { slidesCount: allSlides.length } });
       return res.status(200).json({
         success: true,
         transcript_text: fullText,
@@ -225,6 +227,7 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     console.log('Transcription started, id:', data.id);
+    logApiCall({ apiName: 'assemblyai', action: 'transcribe', userId, projectId, metadata: { transcriptId: data.id } });
     return res.status(200).json({
       success: true,
       transcriptId: data.id,
