@@ -1459,48 +1459,6 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
               </div>
             </div>
 
-            {/* Привязка к выложенному ролику (для аналитики по ответственным) */}
-            {currentProject && hasNoShortcode && (
-              <div className="rounded-card-xl p-3 shadow-glass bg-glass-white/80 backdrop-blur-glass-xl border border-white/[0.35] space-y-3">
-                <p className="text-xs text-slate-400 font-medium">Привязка к выложенному</p>
-                <p className="text-[11px] text-slate-500">Свяжи этот исходник с роликом из аналитики — тогда просмотры попадут в отчёт по ответственным.</p>
-                <button
-                  type="button"
-                  onClick={() => setShowReelPicker(!showReelPicker)}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all touch-manipulation"
-                >
-                  <Link2 className="w-3.5 h-3.5" />
-                  Привязать к выложенному ролику
-                </button>
-                {showReelPicker && (
-                  <div className="space-y-1 max-h-44 overflow-y-auto">
-                    {reelsToOffer.length === 0 ? (
-                      <p className="text-[11px] text-slate-400 px-1">Нет роликов без привязки. Обнови аналитику или привяжи исходники в разделе «По ответственным».</p>
-                    ) : (
-                      reelsToOffer.map((reel) => (
-                        <button
-                          key={reel.id}
-                          type="button"
-                          onClick={() => handleLinkReel(reel.shortcode)}
-                          className="w-full text-left px-3 py-2 rounded-xl bg-white/80 border border-slate-100 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors touch-manipulation flex items-center gap-2"
-                        >
-                          {reel.thumbnail_url ? (
-                            <img src={reel.thumbnail_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
-                          ) : (
-                            <div className="w-10 h-10 rounded bg-slate-200 shrink-0 flex items-center justify-center">
-                              <Film className="w-5 h-5 text-slate-400" />
-                            </div>
-                          )}
-                          <span className="truncate flex-1">{reel.caption?.slice(0, 45) || reel.shortcode}{(reel.caption?.length ?? 0) > 45 ? '…' : ''}</span>
-                        </button>
-                      ))
-                    )}
-                    <button type="button" onClick={() => setShowReelPicker(false)} className="w-full text-center py-1.5 text-[11px] text-slate-400 hover:text-slate-600">Закрыть</button>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Ответственные — динамические пункты с переименованием и добавлением */}
             <div className="rounded-card-xl p-3 shadow-glass bg-glass-white/80 backdrop-blur-glass-xl border border-white/[0.35] space-y-3">
               <div className="flex items-center justify-between mb-2">
@@ -1553,6 +1511,48 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
                 ))}
               </div>
             </div>
+
+            {/* Привязка к выложенному ролику — под ответственными */}
+            {currentProject && hasNoShortcode && (
+              <div className="rounded-card-xl p-3 shadow-glass bg-glass-white/80 backdrop-blur-glass-xl border border-white/[0.35] space-y-3">
+                <p className="text-xs text-slate-400 font-medium">Привязка к выложенному</p>
+                <p className="text-[11px] text-slate-500">Свяжи этот исходник с роликом из аналитики — просмотры попадут в отчёт по ответственным.</p>
+                <button
+                  type="button"
+                  onClick={() => setShowReelPicker(!showReelPicker)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 min-h-[44px] rounded-2xl bg-white/78 backdrop-blur-glass border border-white/70 hover:bg-white text-slate-700 text-sm font-medium shadow-glass-sm transition-all touch-manipulation"
+                >
+                  <Link2 className="w-4 h-4" />
+                  Привязать к выложенному ролику
+                </button>
+                {showReelPicker && (
+                  <div className="space-y-1 max-h-44 overflow-y-auto">
+                    {reelsToOffer.length === 0 ? (
+                      <p className="text-[11px] text-slate-400 px-1">Нет роликов без привязки. Обнови аналитику или привяжи исходники в разделе «По ответственным».</p>
+                    ) : (
+                      reelsToOffer.map((reel) => (
+                        <button
+                          key={reel.id}
+                          type="button"
+                          onClick={() => handleLinkReel(reel.shortcode)}
+                          className="w-full text-left px-3 py-2 rounded-xl bg-white/80 border border-slate-100 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors touch-manipulation flex items-center gap-2"
+                        >
+                          {reel.thumbnail_url ? (
+                            <img src={reel.thumbnail_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-slate-200 shrink-0 flex items-center justify-center">
+                              <Film className="w-5 h-5 text-slate-400" />
+                            </div>
+                          )}
+                          <span className="truncate flex-1">{reel.caption?.slice(0, 45) || reel.shortcode}{(reel.caption?.length ?? 0) > 45 ? '…' : ''}</span>
+                        </button>
+                      ))
+                    )}
+                    <button type="button" onClick={() => setShowReelPicker(false)} className="w-full text-center py-1.5 text-[11px] text-slate-400 hover:text-slate-600">Закрыть</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Middle: Transcript — на мобильных с мин. высотой для скролла */}
