@@ -1151,6 +1151,41 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
   }, [getUserId]);
 
   /**
+   * Привязывает реф (saved_video) к выложенному ролику: проставляет shortcode.
+   * Используется для связи «реф из папки» ↔ «ролик в аналитике».
+   */
+  const updateVideoShortcode = useCallback(async (videoId: string, shortcode: string | null): Promise<boolean> => {
+    try {
+      const userId = getUserId();
+      await setUserContext(userId);
+
+      const { data, error } = await supabase
+        .from('saved_videos')
+        .update({ shortcode: shortcode || null })
+        .eq('id', videoId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error updating video shortcode:', error);
+        return false;
+      }
+      if (!data) {
+        console.warn('updateVideoShortcode: no row updated, check RLS or video id');
+        return false;
+      }
+
+      setVideos(prev => prev.map(v =>
+        v.id === videoId ? { ...v, shortcode: shortcode ?? undefined } as any : v
+      ));
+      return true;
+    } catch (err) {
+      console.error('Error updating video shortcode:', err);
+      return false;
+    }
+  }, [getUserId]);
+
+  /**
    * Обновляет транскрипцию видео
    * Синхронизирует с глобальной таблицей videos
    */
@@ -1254,6 +1289,7 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
     updateVideoTranslation,
     updateVideoResponsible,
     updateVideoLinks,
+    updateVideoShortcode,
     restoreVideo,
     startVideoProcessing, // Ручной запуск транскрибации
     refreshThumbnail,

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { 
   ChevronLeft, Play, Eye, Heart, MessageCircle, Calendar, 
   Sparkles, FileText, Copy, ExternalLink, Loader2, Check,
-  Languages, ChevronDown, Mic, Save, RefreshCw, Plus, Trash2, Wand2, BookOpen, Pencil, Radar, X
+  Languages, ChevronDown, Mic, Save, RefreshCw, Plus, Trash2, Wand2, BookOpen, Pencil, Radar, X, Link2, Film
 } from 'lucide-react';
 import { AnimatedCopyIcon } from './ui/animated-state-icons';
 import { cn } from '../utils/cn';
@@ -14,6 +14,8 @@ import { getOrCreateGlobalVideo, extractShortcode, startGlobalTranscriptionWithV
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useInboxVideos } from '../hooks/useInboxVideos';
+import { useProjectAnalytics } from '../hooks/useProjectAnalytics';
+import { useRefsForLinking, reelsWithoutLinkedRef } from '../hooks/useRefsForLinking';
 import { useAuth } from '../hooks/useAuth';
 import { useRadar } from '../hooks/useRadar';
 import { StyleTrainModal } from './StyleTrainModal';
@@ -50,6 +52,7 @@ interface VideoData {
   download_url?: string;
   storage_video_url?: string;
   folder_id?: string;
+  shortcode?: string | null;
   draft_link?: string;
   final_link?: string;
   script_responsible?: string;
@@ -278,8 +281,23 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
     }
   }, [video.id, video.storage_video_url, video.download_url]);
 
-  const { updateVideoFolder, updateVideoScript, updateVideoTranscript, updateVideoTranslation, updateVideoResponsible, updateVideoLinks } = useInboxVideos();
+  const { updateVideoFolder, updateVideoScript, updateVideoTranscript, updateVideoTranslation, updateVideoResponsible, updateVideoLinks, updateVideoShortcode } = useInboxVideos();
   const { canAfford, deduct } = useTokenBalance();
+  const { reels } = useProjectAnalytics(currentProjectId);
+  const { linkedShortcodes, refetch: refetchRefs } = useRefsForLinking(currentProjectId);
+  const reelsToOffer = reelsWithoutLinkedRef(reels, linkedShortcodes);
+  const [showReelPicker, setShowReelPicker] = useState(false);
+  const hasNoShortcode = !video.shortcode || String(video.shortcode).trim() === '';
+
+  const handleLinkReel = async (shortcode: string) => {
+    const ok = await updateVideoShortcode(video.id, shortcode);
+    setShowReelPicker(false);
+    if (ok) {
+      toast.success('Привязано к выложенному ролику');
+      refetchRefs();
+      await onRefreshData?.();
+    } else toast.error('Не удалось привязать');
+  };
 
   const addLinkRow = () => setLinks(prev => [...prev, { id: `link-${Date.now()}`, label: '', value: '' }]);
   const removeLinkRow = (id: string) => setLinks(prev => prev.length > 1 ? prev.filter(r => r.id !== id) : prev);
@@ -1439,6 +1457,48 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
                 ))}
               </div>
             </div>
+
+            {/* Привязка к выложенному ролику (для аналитики по ответственным) */}
+            {currentProject && hasNoShortcode && (
+              <div className="rounded-card-xl p-3 shadow-glass bg-glass-white/80 backdrop-blur-glass-xl border border-white/[0.35] space-y-3">
+                <p className="text-xs text-slate-400 font-medium">Привязка к выложенному</p>
+                <p className="text-[11px] text-slate-500">Свяжи этот реф с роликом из аналитики — тогда просмотры попадут в отчёт по ответственным.</p>
+                <button
+                  type="button"
+                  onClick={() => setShowReelPicker(!showReelPicker)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all touch-manipulation"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  Привязать к выложенному ролику
+                </button>
+                {showReelPicker && (
+                  <div className="space-y-1 max-h-44 overflow-y-auto">
+                    {reelsToOffer.length === 0 ? (
+                      <p className="text-[11px] text-slate-400 px-1">Нет роликов без привязки. Обнови аналитику или привяжи рефы в разделе «По ответственным».</p>
+                    ) : (
+                      reelsToOffer.map((reel) => (
+                        <button
+                          key={reel.id}
+                          type="button"
+                          onClick={() => handleLinkReel(reel.shortcode)}
+                          className="w-full text-left px-3 py-2 rounded-xl bg-white/80 border border-slate-100 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors touch-manipulation flex items-center gap-2"
+                        >
+                          {reel.thumbnail_url ? (
+                            <img src={reel.thumbnail_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-slate-200 shrink-0 flex items-center justify-center">
+                              <Film className="w-5 h-5 text-slate-400" />
+                            </div>
+                          )}
+                          <span className="truncate flex-1">{reel.caption?.slice(0, 45) || reel.shortcode}{(reel.caption?.length ?? 0) > 45 ? '…' : ''}</span>
+                        </button>
+                      ))
+                    )}
+                    <button type="button" onClick={() => setShowReelPicker(false)} className="w-full text-center py-1.5 text-[11px] text-slate-400 hover:text-slate-600">Закрыть</button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Ответственные — динамические пункты с переименованием и добавлением */}
             <div className="rounded-card-xl p-3 shadow-glass bg-glass-white/80 backdrop-blur-glass-xl border border-white/[0.35] space-y-3">

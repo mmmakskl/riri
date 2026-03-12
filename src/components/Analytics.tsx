@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useProjectContext } from '../contexts/ProjectContext';
 import { useProjectAnalytics, type ProjectReel, type SyncCount } from '../hooks/useProjectAnalytics';
 import { useResponsiblesStats } from '../hooks/useResponsiblesAnalytics';
+import { useRefsForLinking, reelsWithoutLinkedRef } from '../hooks/useRefsForLinking';
 import { useInboxVideos } from '../hooks/useInboxVideos';
 import { useTokenBalance } from '../contexts/TokenBalanceContext';
 import { getTokenCost } from '../constants/tokenCosts';
@@ -14,7 +15,7 @@ import {
   BarChart2, RefreshCw, Instagram, Eye, Heart, MessageCircle,
   Award, Film, X, CalendarDays,
   ArrowUpRight, ArrowDownRight, Minus, Mic, Sparkles,
-  LayoutGrid, List, AlertCircle, Clock, ChevronRight, ChevronLeft, Users,
+  LayoutGrid, List, AlertCircle, Clock, ChevronRight, ChevronLeft, Users, Link2, Unlink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -455,8 +456,28 @@ function ReelDetailModal({ reel, onClose, getReelSnapshots }: {
   const [transcript, setTranscript] = useState<string | null>(null);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
-  const { addVideoToInbox } = useInboxVideos();
+  const [showRefPicker, setShowRefPicker] = useState(false);
+  const { addVideoToInbox, updateVideoShortcode } = useInboxVideos();
   const { currentProject } = useProjectContext();
+  const { refs, refsWithoutShortcode, refetch: refetchRefs } = useRefsForLinking(currentProject?.id ?? null);
+
+  const linkedRef = refs.find(r => r.shortcode === reel.shortcode);
+  const handleLinkRef = async (refId: string) => {
+    const ok = await updateVideoShortcode(refId, reel.shortcode);
+    setShowRefPicker(false);
+    if (ok) {
+      toast.success('Реф привязан к ролику');
+      refetchRefs();
+    } else toast.error('Не удалось привязать');
+  };
+  const handleUnlinkRef = async () => {
+    if (!linkedRef) return;
+    const ok = await updateVideoShortcode(linkedRef.id, null);
+    if (ok) {
+      toast.success('Привязка снята');
+      refetchRefs();
+    } else toast.error('Не удалось отвязать');
+  };
 
   const chartData = useMemo(() => {
     if (reelSnaps.length < 2) return [];
@@ -643,6 +664,82 @@ function ReelDetailModal({ reel, onClose, getReelSnapshots }: {
               )}
             </AnimatePresence>
 
+            {/* Привязка к рефу из папки (для аналитики по ответственным) */}
+            {currentProject && (
+              <div className="bg-slate-50 rounded-2xl p-3 space-y-2">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-1">Реф из папки</p>
+                {linkedRef ? (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white border border-slate-100">
+                    <span className="text-[13px] text-slate-700 truncate flex-1">
+                      {linkedRef.caption?.slice(0, 50) || 'Реф без названия'}
+                      {(linkedRef.caption?.length ?? 0) > 50 ? '…' : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleUnlinkRef}
+                      className="shrink-0 p-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 touch-manipulation"
+                      title="Отвязать реф"
+                    >
+                      <Unlink className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowRefPicker(!showRefPicker)}
+                      className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all touch-manipulation"
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                      Привязать к рефу из папки
+                    </button>
+                    <AnimatePresence>
+                      {showRefPicker && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {refsWithoutShortcode.length === 0 ? (
+                              <p className="text-[12px] text-slate-400 px-2 py-2">Нет рефов без привязки. Добавь видео в папки в ленте.</p>
+                            ) : (
+                              refsWithoutShortcode.map((ref) => (
+                                <button
+                                  key={ref.id}
+                                  type="button"
+                                  onClick={() => handleLinkRef(ref.id)}
+                                  className="w-full text-left px-3 py-2.5 rounded-xl bg-white text-[13px] text-slate-700 hover:bg-slate-100 transition-colors touch-manipulation flex items-center gap-2"
+                                >
+                                  {ref.thumbnail_url ? (
+                                    <img src={ref.thumbnail_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+                                  ) : (
+                                    <div className="w-8 h-8 rounded bg-slate-200 shrink-0 flex items-center justify-center">
+                                      <Film className="w-4 h-4 text-slate-400" />
+                                    </div>
+                                  )}
+                                  <span className="truncate">{ref.caption?.slice(0, 40) || 'Без названия'}{(ref.caption?.length ?? 0) > 40 ? '…' : ''}</span>
+                                </button>
+                              ))
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setShowRefPicker(false)}
+                              className="w-full text-center py-2 text-[12px] text-slate-400 hover:text-slate-600 touch-manipulation"
+                            >
+                              Отмена
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Views chart */}
             {chartData.length >= 2 ? (
               <div className="bg-slate-50 rounded-2xl p-4">
@@ -799,6 +896,11 @@ export function Analytics() {
     getReelSnapshots, buildChartData,
   } = useProjectAnalytics(currentProjectId);
   const { stats: responsiblesStats, byRole } = useResponsiblesStats(currentProjectId, reels);
+  const { refsWithoutShortcode, linkedShortcodes, refetch: refetchRefsForLinking } = useRefsForLinking(currentProjectId);
+  const { updateVideoShortcode } = useInboxVideos();
+  const reelsWithoutRef = reelsWithoutLinkedRef(reels, linkedShortcodes);
+  const [linkReelForRefId, setLinkReelForRefId] = useState<string | null>(null);
+  const [linkRefForReelShortcode, setLinkRefForReelShortcode] = useState<string | null>(null);
 
   const { deduct, canAfford } = useTokenBalance();
 
@@ -1102,6 +1204,17 @@ export function Analytics() {
   // ══════════════════════════════════════════════════════════════════════════
   if (subView === 'responsibles') {
     const roles = [...byRole.keys()];
+
+    const handleLinkRefToReel = async (refId: string, shortcode: string) => {
+      const ok = await updateVideoShortcode(refId, shortcode);
+      setLinkReelForRefId(null);
+      setLinkRefForReelShortcode(null);
+      if (ok) {
+        toast.success('Реф привязан к ролику');
+        refetchRefsForLinking();
+      } else toast.error('Не удалось привязать');
+    };
+
     return (
       <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
         <div className="max-w-2xl mx-auto px-4 pt-6 pb-24 space-y-4">
@@ -1109,6 +1222,75 @@ export function Analytics() {
           <p className="text-[13px] text-slate-500">
             Сумма просмотров роликов, у которых указан ответственный. Заполняйте логины в карточках видео в ленте.
           </p>
+
+          {/* Прикрепления: рефы без привязки ↔ ролики без рефа */}
+          {(refsWithoutShortcode.length > 0 || reelsWithoutRef.length > 0) && (
+            <div className={cn(CARD, 'p-4 space-y-4')}>
+              <p className="text-[13px] font-semibold text-slate-700">Прикрепления</p>
+              <p className="text-[11px] text-slate-500">Свяжи рефы из папок с выложенными роликами — тогда просмотры попадут в отчёт по ответственным.</p>
+              {refsWithoutShortcode.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Рефы без привязки</p>
+                  <ul className="space-y-1.5">
+                    {refsWithoutShortcode.map((ref) => (
+                      <li key={ref.id} className="flex items-center justify-between gap-2 py-2 px-3 rounded-xl bg-slate-50">
+                        <span className="text-[13px] text-slate-700 truncate flex-1">
+                          {ref.caption?.slice(0, 50) || 'Без названия'}
+                          {(ref.caption?.length ?? 0) > 50 ? '…' : ''}
+                        </span>
+                        {linkReelForRefId === ref.id ? (
+                          <div className="flex flex-col gap-1 max-h-32 overflow-y-auto shrink-0">
+                            {reelsWithoutRef.slice(0, 5).map((r) => (
+                              <button key={r.id} type="button" onClick={() => handleLinkRefToReel(ref.id, r.shortcode)}
+                                className="text-left px-2 py-1.5 rounded-lg bg-white text-[11px] text-slate-600 hover:bg-indigo-50 truncate max-w-[180px]">
+                                {r.caption?.slice(0, 30) || r.shortcode}…
+                              </button>
+                            ))}
+                            <button type="button" onClick={() => setLinkReelForRefId(null)} className="text-[10px] text-slate-400">Отмена</button>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={() => setLinkReelForRefId(ref.id)} className="shrink-0 px-2 py-1 rounded-lg bg-indigo-100 text-indigo-600 text-[11px] font-medium touch-manipulation">
+                            Привязать
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {reelsWithoutRef.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Ролики без рефа</p>
+                  <ul className="space-y-1.5">
+                    {reelsWithoutRef.slice(0, 10).map((reel) => (
+                      <li key={reel.id} className="flex items-center justify-between gap-2 py-2 px-3 rounded-xl bg-slate-50">
+                        <span className="text-[13px] text-slate-700 truncate flex-1">
+                          {reel.caption?.slice(0, 50) || reel.shortcode}
+                          {(reel.caption?.length ?? 0) > 50 ? '…' : ''}
+                        </span>
+                        {linkRefForReelShortcode === reel.shortcode ? (
+                          <div className="flex flex-col gap-1 max-h-32 overflow-y-auto shrink-0">
+                            {refsWithoutShortcode.slice(0, 5).map((r) => (
+                              <button key={r.id} type="button" onClick={() => handleLinkRefToReel(r.id, reel.shortcode)}
+                                className="text-left px-2 py-1.5 rounded-lg bg-white text-[11px] text-slate-600 hover:bg-indigo-50 truncate max-w-[180px]">
+                                {r.caption?.slice(0, 30) || 'Реф'}…
+                              </button>
+                            ))}
+                            <button type="button" onClick={() => setLinkRefForReelShortcode(null)} className="text-[10px] text-slate-400">Отмена</button>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={() => setLinkRefForReelShortcode(reel.shortcode)} className="shrink-0 px-2 py-1 rounded-lg bg-indigo-100 text-indigo-600 text-[11px] font-medium touch-manipulation">
+                            Привязать
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
           {responsiblesStats.length === 0 ? (
             <div className={cn(CARD, 'p-8 text-center')}>
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
