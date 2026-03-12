@@ -101,15 +101,30 @@ export function useProjectAnalytics(projectId: string | null) {
         snapshotsByReelId.get(snap.reel_id)!.push(snap);
       }
 
-      const reelsWithLatest: ProjectReel[] = reelsData.map(reel => {
+      // Load thumbnails from our storage (videos table) — Instagram URLs can expire
+      const shortcodes = reelsData.map((r: { shortcode: string }) => r.shortcode);
+      const { data: videosData } = await supabase
+        .from('videos')
+        .select('shortcode, thumbnail_url')
+        .in('shortcode', shortcodes);
+      const thumbByShortcode = new Map<string, string>();
+      for (const v of (videosData || []) as { shortcode: string; thumbnail_url?: string }[]) {
+        if (v.thumbnail_url?.includes('supabase')) {
+          thumbByShortcode.set(v.shortcode, v.thumbnail_url);
+        }
+      }
+
+      const reelsWithLatest: ProjectReel[] = (reelsData as ProjectReel[]).map((reel) => {
         const reelSnaps = snapshotsByReelId.get(reel.id) || [];
         const latest = reelSnaps[reelSnaps.length - 1];
+        const storedThumb = thumbByShortcode.get(reel.shortcode);
         return {
           ...reel,
           latest_view_count: latest?.view_count,
           latest_like_count: latest?.like_count,
           latest_comment_count: latest?.comment_count,
           latest_snapshotted_at: latest?.snapshotted_at,
+          thumbnail_url: (storedThumb || reel.thumbnail_url) ?? null,
         };
       });
 
@@ -364,49 +379,43 @@ export function useProjectAnalytics(projectId: string | null) {
     }
 
     // ── "Общее" (cumulative): snapshot-based timeline ─────────────────────────
-    // Shows how total views changed over time based on snapshot dates.
-    // Requires at least 1 sync with snapshots. Falls back to publication-date
-    // cumulative sum when no snapshots are available.
+    // X = snapshot date, Y = total views at that moment.
+    // Each sync = one point. Without snapshots we can't build this — return empty.
     if (snapshots.length === 0) {
-      // Fallback: build cumulative sum from reel publication dates + current views
-      if (reels.length === 0) return [];
-      const bucketMap = new Map<string, { views: number; likes: number; comments: number; date: Date }>();
-      for (const reel of reels) {
-        if (!reel.taken_at) continue;
-        const date = new Date(reel.taken_at * 1000);
-        const key = getBucketKey(date);
-        const existing = bucketMap.get(key);
-        const v = reel.latest_view_count || 0;
-        const l = reel.latest_like_count || 0;
-        const c = reel.latest_comment_count || 0;
-        bucketMap.set(key, existing
-          ? { views: existing.views + v, likes: existing.likes + l, comments: existing.comments + c, date: existing.date }
-          : { views: v, likes: l, comments: c, date }
-        );
-      }
-      // Apply cumulative sum so each bucket accumulates all prior buckets
-      const sorted = toSorted(bucketMap);
-      let cumViews = 0, cumLikes = 0, cumComments = 0;
-      return sorted.map(pt => {
-        cumViews += pt.views;
-        cumLikes += pt.likes;
-        cumComments += pt.comments;
-        return { ...pt, views: cumViews, likes: cumLikes, comments: cumComments };
-      });
+      return [];
     }
 
-    // Full snapshot-based cumulative timeline
-    const bucketMap = new Map<string, { views: number; likes: number; comments: number; date: Date }>();
+    // Group snapshots by sync (same snapshotted_at = one sync batch)
+    const bySync = new Map<string, typeof snapshots>();
     for (const snap of snapshots) {
-      const snapDate = new Date(snap.snapshotted_at);
-      const key = getBucketKey(snapDate);
-      const existing = bucketMap.get(key);
-      bucketMap.set(key, existing
-        ? { views: existing.views + snap.view_count, likes: existing.likes + snap.like_count, comments: existing.comments + snap.comment_count, date: existing.date }
-        : { views: snap.view_count, likes: snap.like_count, comments: snap.comment_count, date: snapDate }
-      );
+      const t = snap.snapshotted_at;
+      if (!bySync.has(t)) bySync.set(t, []);
+      bySync.get(t)!.push(snap);
     }
 
+    // Each sync → one point: sum view_count across all reels in that sync
+    const points: { date: Date; views: number; likes: number; comments: number }[] = [];
+    const sortedTimes = [...bySync.keys()].sort();
+    for (const t of sortedTimes) {
+      const batch = bySync.get(t)!;
+      const views = batch.reduce((s, x) => s + x.view_count, 0);
+      const likes = batch.reduce((s, x) => s + x.like_count, 0);
+      const comments = batch.reduce((s, x) => s + x.comment_count, 0);
+      points.push({ date: new Date(t), views, likes, comments });
+    }
+
+    // If period is day/week/month, collapse to one point per bucket (latest in bucket)
+    if (period !== 'day' && period !== 'week' && period !== 'month') {
+      return points;
+    }
+    const bucketMap = new Map<string, { views: number; likes: number; comments: number; date: Date }>();
+    for (const pt of points) {
+      const key = getBucketKey(pt.date);
+      const existing = bucketMap.get(key);
+      if (!existing || pt.date > existing.date) {
+        bucketMap.set(key, { ...pt, date: pt.date });
+      }
+    }
     return toSorted(bucketMap);
   }, [snapshots, reels]);
 

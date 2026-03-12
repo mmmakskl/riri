@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProjectContext } from '../contexts/ProjectContext';
 import { useProjectAnalytics, type ProjectReel, type SyncCount } from '../hooks/useProjectAnalytics';
+import { useResponsiblesStats } from '../hooks/useResponsiblesAnalytics';
 import { useInboxVideos } from '../hooks/useInboxVideos';
 import { useTokenBalance } from '../contexts/TokenBalanceContext';
 import { getTokenCost } from '../constants/tokenCosts';
@@ -13,7 +14,7 @@ import {
   BarChart2, RefreshCw, Instagram, Eye, Heart, MessageCircle,
   Award, Film, X, CalendarDays,
   ArrowUpRight, ArrowDownRight, Minus, Mic, Sparkles,
-  LayoutGrid, List, AlertCircle, Clock, ChevronRight, ChevronLeft,
+  LayoutGrid, List, AlertCircle, Clock, ChevronRight, ChevronLeft, Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -762,7 +763,7 @@ function SetupModal({ onSave, onClose, initial }: { onSave: (u: string) => void;
 
 // ─── Main Analytics Component ─────────────────────────────────────────────────
 
-type SubView = 'overview' | 'reels' | 'charts';
+type SubView = 'overview' | 'reels' | 'charts' | 'responsibles';
 
 export function Analytics() {
   const { currentProjectId } = useProjectContext();
@@ -771,6 +772,7 @@ export function Analytics() {
     loadAnalytics, loadProjectConfig, setInstagramUsername, syncReels,
     getReelSnapshots, buildChartData,
   } = useProjectAnalytics(currentProjectId);
+  const { stats: responsiblesStats, byRole } = useResponsiblesStats(currentProjectId, reels);
 
   const { deduct, canAfford } = useTokenBalance();
 
@@ -797,7 +799,7 @@ export function Analytics() {
 
   const handleSync = useCallback(async (count: SyncCount) => {
     if (!instagramUsername) return;
-    const tokenAction = count === 12 ? 'analytics_sync_12' : count === 24 ? 'analytics_sync_24' : 'analytics_sync_36';
+    const tokenAction = count === 12 ? 'analytics_sync_12' : count === 24 ? 'analytics_sync_24' : count === 36 ? 'analytics_sync_36' : count === 48 ? 'analytics_sync_48' : 'analytics_sync_60';
     const cost = getTokenCost(tokenAction);
     if (!canAfford(cost)) { toast.error(`Недостаточно монет. Нужно ${cost} монет`); return; }
     setShowSyncModal(false);
@@ -858,7 +860,7 @@ export function Analytics() {
         {subView === 'overview' && <GreySphere size={40} />}
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            {subView === 'overview' ? 'Аналитика' : subView === 'reels' ? 'Все ролики' : 'Графики'}
+            {subView === 'overview' ? 'Аналитика' : subView === 'reels' ? 'Все ролики' : subView === 'charts' ? 'Графики' : 'По ответственным'}
           </h1>
           {subView === 'overview' && instagramUsername && (
             <button onClick={() => setShowSetupModal(true)}
@@ -1028,9 +1030,13 @@ export function Analytics() {
                 <ChartTooltip rows={(p) => [{ color: '#6366f1', label: 'Просмотры', value: (p.views as number) ?? 0 }]} />
               </AreaChart>
             ) : (
-              <div className="h-36 flex flex-col items-center justify-center text-center">
+              <div className="h-36 flex flex-col items-center justify-center text-center px-4">
                 <AlertCircle className="w-8 h-8 text-slate-200 mb-2" />
-                <p className="text-sm text-slate-400">Обнови, чтобы увидеть данные</p>
+                <p className="text-sm text-slate-500">
+                  {chartMode === 'cumulative'
+                    ? 'Для «Общее» нужны 2+ синхронизации в разное время'
+                    : 'Обнови, чтобы загрузить ролики'}
+                </p>
               </div>
             )}
           </div>
@@ -1055,6 +1061,51 @@ export function Analytics() {
         <AnimatePresence>
           {showSyncModal && <SyncModal key="sync" onSync={handleSync} onClose={() => setShowSyncModal(false)} syncing={syncing} lastSyncAt={lastSyncAt} />}
         </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── SUB-VIEW: RESPONSIBLES ─────────────────────────────────────────────═
+  // ══════════════════════════════════════════════════════════════════════════
+  if (subView === 'responsibles') {
+    const roles = [...byRole.keys()];
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto bg-[#f0f0f5]">
+        <div className="max-w-2xl mx-auto px-4 pt-6 pb-24 space-y-4">
+          {Header}
+          <p className="text-[13px] text-slate-500">
+            Сумма просмотров роликов, у которых указан ответственный. Заполняйте логины в карточках видео в ленте.
+          </p>
+          {responsiblesStats.length === 0 ? (
+            <div className={cn(CARD, 'p-8 text-center')}>
+              <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-[15px] font-medium text-slate-600">Нет данных по ответственным</p>
+              <p className="text-[13px] text-slate-400 mt-1">
+                Добавь ролики в папки и укажи ответственных в карточках
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {roles.map(role => (
+                <div key={role} className={cn(CARD, 'p-4')}>
+                  <p className="text-[13px] font-semibold text-slate-700 mb-3">{role}</p>
+                  <div className="space-y-2">
+                    {byRole.get(role)!.map((s, i) => (
+                      <div key={`${s.person}-${i}`} className="flex items-center justify-between py-2 px-3 rounded-xl bg-slate-50">
+                        <span className="text-[14px] font-medium text-slate-800">{s.person}</span>
+                        <div className="flex items-center gap-4">
+                          <span className="text-[12px] text-slate-400">{s.reelsCount} роликов</span>
+                          <span className="text-[15px] font-bold text-slate-900 tabular-nums">{fmt(s.views)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -1177,8 +1228,9 @@ export function Analytics() {
                   <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center">
                     <BarChart2 className="w-4 h-4 text-indigo-300" />
                   </div>
-                  <p className="text-[12px] font-medium text-slate-400">Обнови через день —</p>
-                  <p className="text-[11px] text-slate-300">и графики появятся</p>
+                  <p className="text-[12px] font-medium text-slate-400">
+                    {chartMode === 'cumulative' ? '2+ синка — график «Общее»' : 'Обнови для графика «Точечно»'}
+                  </p>
                 </div>
               )}
             </motion.button>
@@ -1302,6 +1354,27 @@ export function Analytics() {
                 ))}
               </div>
             ) : <p className="text-sm text-slate-400">Нет роликов</p>}
+          </motion.button>
+
+          {/* ── По ответственным ──────────────────────────────────────────────── */}
+          <motion.button
+            onClick={() => setSubView('responsibles')}
+            className={cn(CARD, "w-full p-4 text-left flex items-center justify-between active:scale-[0.98] transition-transform")}
+            whileTap={{ scale: 0.98 }}
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+                <Users className="w-5 h-5 text-indigo-500" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-slate-700">По ответственным</p>
+                <p className="text-[11px] text-slate-400">
+                  {responsiblesStats.length > 0 ? `${responsiblesStats.length} записей` : 'Заполняй в карточках видео'}
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-slate-400" />
           </motion.button>
         </motion.div>
       </div>
