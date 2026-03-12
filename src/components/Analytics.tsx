@@ -834,10 +834,16 @@ export function Analytics() {
   }, [instagramUsername, syncReels, deduct, canAfford]);
 
   const chartData = useMemo(() => buildChartData(period, chartMode), [buildChartData, period, chartMode]);
-  // Subtitle label for the chart based on mode + data availability
-  const chartSubtitle = chartMode === 'release_week'
+  // Если «Общее» пусто — показываем «Точечно» в разделе аналитики
+  const effectiveChartData = useMemo(() => {
+    if (chartData.length > 0) return chartData;
+    if (chartMode === 'cumulative') return buildChartData(period, 'release_week');
+    return [];
+  }, [chartData, chartMode, buildChartData, period]);
+  const chartIsFallbackToPoint = chartMode === 'cumulative' && chartData.length === 0 && effectiveChartData.length > 0;
+  const chartSubtitle = chartMode === 'release_week' || chartIsFallbackToPoint
     ? 'просмотры роликов по дате выпуска'
-    : snapshots.length === 0 ? 'накоплением по дате выпуска' : null;
+    : snapshots.length === 0 ? null : null;
 
   const sortedReels = useMemo(() => {
     return [...reels].sort((a, b) => {
@@ -1047,8 +1053,8 @@ export function Analytics() {
                 )}
               </div>
             </div>
-            {chartData.length >= 1 ? (
-              <AreaChart data={chartData} formatXLabel={(d) => formatChartDateLabel(d, period)} aspectRatio="2.2 / 1" margin={{ top: 16, right: 20, bottom: 36, left: 44 }}>
+            {effectiveChartData.length >= 1 ? (
+              <AreaChart data={effectiveChartData} formatXLabel={(d) => formatChartDateLabel(d, period)} aspectRatio="2.2 / 1" margin={{ top: 16, right: 20, bottom: 36, left: 44 }}>
                 <Grid horizontal numTicksRows={4} />
                 <Area dataKey="views" fill="#6366f1" fillOpacity={0.13} stroke="#6366f1" strokeWidth={2} fadeEdges />
                 <YAxis numTicks={4} formatValue={(v) => fmt(v as number)} />
@@ -1067,10 +1073,10 @@ export function Analytics() {
             )}
           </div>
           {/* Likes + Comments */}
-          {chartData.length >= 1 && (
+          {effectiveChartData.length >= 1 && (
             <div className={cn(CARD, "p-4")}>
               <p className="text-[13px] font-semibold text-slate-700 mb-3">Лайки и комментарии</p>
-              <AreaChart data={chartData} formatXLabel={(d) => formatChartDateLabel(d, period)} aspectRatio="2.2 / 1" margin={{ top: 16, right: 20, bottom: 36, left: 44 }}>
+              <AreaChart data={effectiveChartData} formatXLabel={(d) => formatChartDateLabel(d, period)} aspectRatio="2.2 / 1" margin={{ top: 16, right: 20, bottom: 36, left: 44 }}>
                 <Grid horizontal numTicksRows={3} />
                 <Area dataKey="likes" fill="#f43f5e" fillOpacity={0.12} stroke="#f43f5e" strokeWidth={2} fadeEdges />
                 <Area dataKey="comments" fill="#10b981" fillOpacity={0.12} stroke="#10b981" strokeWidth={2} fadeEdges />
@@ -1241,12 +1247,12 @@ export function Analytics() {
                   <ChevronRight className="w-3 h-3" />
                 </div>
               </div>
-              {chartData.length >= 1 ? (
-                <AreaChart data={chartData} formatXLabel={(d) => formatChartDateLabel(d, period, true)} aspectRatio="1.8 / 1" margin={{ top: 8, right: 16, bottom: 24, left: 36 }}>
+              {effectiveChartData.length >= 1 ? (
+                <AreaChart data={effectiveChartData} formatXLabel={(d) => formatChartDateLabel(d, period, true)} aspectRatio="1.8 / 1" margin={{ top: 8, right: 36, bottom: 28, left: 40 }}>
                   <Grid horizontal numTicksRows={2} />
                   <Area dataKey="views" fill="#6366f1" fillOpacity={0.13} stroke="#6366f1" strokeWidth={1.5} fadeEdges />
                   <YAxis numTicks={2} formatValue={(v) => fmt(v as number)} />
-                  <XAxis numTicks={3} tickerHalfWidth={35} />
+                  <XAxis numTicks={2} tickerHalfWidth={35} />
                   <ChartTooltip rows={(p) => [{ color: '#6366f1', label: 'Просмотры', value: (p.views as number) ?? 0 }]} />
                 </AreaChart>
               ) : (

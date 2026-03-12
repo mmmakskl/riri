@@ -775,8 +775,8 @@ export interface XAxisProps {
   tickerHalfWidth?: number;
 }
 
-function XAxisLabel({ label, x, crosshairX, isHovering, tickerHalfWidth }: {
-  label: string; x: number; crosshairX: number | null; isHovering: boolean; tickerHalfWidth: number;
+function XAxisLabel({ label, x, crosshairX, isHovering, tickerHalfWidth, containerWidth }: {
+  label: string; x: number; crosshairX: number | null; isHovering: boolean; tickerHalfWidth: number; containerWidth: number;
 }) {
   const fadeBuffer = 20;
   const fadeRadius = tickerHalfWidth + fadeBuffer;
@@ -786,10 +786,16 @@ function XAxisLabel({ label, x, crosshairX, isHovering, tickerHalfWidth }: {
     if (distance < tickerHalfWidth) opacity = 0;
     else if (distance < fadeRadius) opacity = (distance - tickerHalfWidth) / fadeBuffer;
   }
+  const maxLabelWidth = Math.min(72, Math.max(40, 2 * Math.min(x, Math.max(0, containerWidth - x)) - 4));
   return (
     <div className="absolute" style={{ left: x, bottom: 12, width: 0, display: "flex", justifyContent: "center", transform: "translateX(-50%)" }}>
-      <motion.span animate={{ opacity }} className="text-[10px] leading-tight" style={{ color: chartCssVars.label, maxWidth: "72px", textAlign: "center" }}
-        initial={{ opacity: 1 }} transition={{ duration: 0.4, ease: "easeInOut" }}
+      <motion.span
+        animate={{ opacity }}
+        className="text-[10px] leading-tight truncate shrink-0 block"
+        initial={{ opacity: 1 }}
+        style={{ color: chartCssVars.label, maxWidth: maxLabelWidth, textAlign: "center" }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
+        title={label}
       >
         {label}
       </motion.span>
@@ -798,7 +804,7 @@ function XAxisLabel({ label, x, crosshairX, isHovering, tickerHalfWidth }: {
 }
 
 export function XAxis({ numTicks = 5, tickerHalfWidth = 50 }: XAxisProps) {
-  const { xScale, margin, tooltipData, containerRef, formatXLabel } = useChart();
+  const { xScale, margin, tooltipData, containerRef, formatXLabel, width: containerWidth } = useChart();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -831,7 +837,7 @@ export function XAxis({ numTicks = 5, tickerHalfWidth = 50 }: XAxisProps) {
   return createPortal(
     <div className="pointer-events-none absolute inset-0">
       {labelsToShow.map((item) => (
-        <XAxisLabel crosshairX={crosshairX} isHovering={isHovering} key={`${item.label}-${item.x}`}
+        <XAxisLabel containerWidth={containerWidth} crosshairX={crosshairX} isHovering={isHovering} key={`${item.label}-${item.x}`}
           label={item.label} tickerHalfWidth={tickerHalfWidth} x={item.x}
         />
       ))}
