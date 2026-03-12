@@ -1462,7 +1462,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
             {currentProject && hasNoShortcode && (
               <div className="rounded-card-xl p-3 shadow-glass bg-glass-white/80 backdrop-blur-glass-xl border border-white/[0.35] space-y-3">
                 <p className="text-xs text-slate-400 font-medium">Привязка к выложенному</p>
-                <p className="text-[11px] text-slate-500">Свяжи этот реф с роликом из аналитики — тогда просмотры попадут в отчёт по ответственным.</p>
+                <p className="text-[11px] text-slate-500">Свяжи этот исходник с роликом из аналитики — тогда просмотры попадут в отчёт по ответственным.</p>
                 <button
                   type="button"
                   onClick={() => setShowReelPicker(!showReelPicker)}
@@ -1474,7 +1474,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
                 {showReelPicker && (
                   <div className="space-y-1 max-h-44 overflow-y-auto">
                     {reelsToOffer.length === 0 ? (
-                      <p className="text-[11px] text-slate-400 px-1">Нет роликов без привязки. Обнови аналитику или привяжи рефы в разделе «По ответственным».</p>
+                      <p className="text-[11px] text-slate-400 px-1">Нет роликов без привязки. Обнови аналитику или привяжи исходники в разделе «По ответственным».</p>
                     ) : (
                       reelsToOffer.map((reel) => (
                         <button

@@ -1151,8 +1151,8 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
   }, [getUserId]);
 
   /**
-   * Привязывает реф (saved_video) к выложенному ролику: проставляет shortcode.
-   * Используется для связи «реф из папки» ↔ «ролик в аналитике».
+   * Привязывает исходник (saved_video) к выложенному ролику: проставляет shortcode.
+   * Используется для связи «исходник из папки» ↔ «ролик в аналитике».
    */
   const updateVideoShortcode = useCallback(async (videoId: string, shortcode: string | null): Promise<boolean> => {
     try {

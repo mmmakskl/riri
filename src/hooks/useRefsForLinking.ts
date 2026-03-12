@@ -11,7 +11,7 @@ export interface RefForLinking {
 }
 
 /**
- * Рефы проекта для привязки к роликам: без shortcode и множество уже привязанных shortcode.
+ * Исходники проекта для привязки к роликам: без shortcode и множество уже привязанных shortcode.
  * reelsWithoutLinkedRef = reels.filter(r => !linkedShortcodes.has(r.shortcode)).
  */
 export function useRefsForLinking(projectId: string | null) {
@@ -63,7 +63,7 @@ export function useRefsForLinking(projectId: string | null) {
   return { refs, refsWithoutShortcode, linkedShortcodes, loading, refetch };
 }
 
-/** Ролики, у которых нет привязанного рефа в этом проекте */
+/** Ролики, у которых нет привязанного исходника в этом проекте */
 export function reelsWithoutLinkedRef(reels: ProjectReel[], linkedShortcodes: Set<string>): ProjectReel[] {
   return reels.filter(r => !linkedShortcodes.has(r.shortcode));
 }

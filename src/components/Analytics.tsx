@@ -466,7 +466,7 @@ function ReelDetailModal({ reel, onClose, getReelSnapshots }: {
     const ok = await updateVideoShortcode(refId, reel.shortcode);
     setShowRefPicker(false);
     if (ok) {
-      toast.success('Реф привязан к ролику');
+      toast.success('Исходник привязан к ролику');
       refetchRefs();
     } else toast.error('Не удалось привязать');
   };
@@ -664,21 +664,21 @@ function ReelDetailModal({ reel, onClose, getReelSnapshots }: {
               )}
             </AnimatePresence>
 
-            {/* Привязка к рефу из папки (для аналитики по ответственным) */}
+            {/* Привязка к исходнику из папки (для аналитики по ответственным) */}
             {currentProject && (
               <div className="bg-slate-50 rounded-2xl p-3 space-y-2">
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-1">Реф из папки</p>
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-1">Исходник из папки</p>
                 {linkedRef ? (
                   <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white border border-slate-100">
                     <span className="text-[13px] text-slate-700 truncate flex-1">
-                      {linkedRef.caption?.slice(0, 50) || 'Реф без названия'}
+                      {linkedRef.caption?.slice(0, 50) || 'Исходник без названия'}
                       {(linkedRef.caption?.length ?? 0) > 50 ? '…' : ''}
                     </span>
                     <button
                       type="button"
                       onClick={handleUnlinkRef}
                       className="shrink-0 p-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 touch-manipulation"
-                      title="Отвязать реф"
+                      title="Отвязать исходник"
                     >
                       <Unlink className="w-4 h-4" />
                     </button>
@@ -691,7 +691,7 @@ function ReelDetailModal({ reel, onClose, getReelSnapshots }: {
                       className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all touch-manipulation"
                     >
                       <Link2 className="w-3.5 h-3.5" />
-                      Привязать к рефу из папки
+                      Привязать к исходнику из папки
                     </button>
                     <AnimatePresence>
                       {showRefPicker && (
@@ -704,7 +704,7 @@ function ReelDetailModal({ reel, onClose, getReelSnapshots }: {
                         >
                           <div className="space-y-1 max-h-40 overflow-y-auto">
                             {refsWithoutShortcode.length === 0 ? (
-                              <p className="text-[12px] text-slate-400 px-2 py-2">Нет рефов без привязки. Добавь видео в папки в ленте.</p>
+                              <p className="text-[12px] text-slate-400 px-2 py-2">Нет исходников без привязки. Добавь видео в папки в ленте.</p>
                             ) : (
                               refsWithoutShortcode.map((ref) => (
                                 <button
@@ -1210,7 +1210,7 @@ export function Analytics() {
       setLinkReelForRefId(null);
       setLinkRefForReelShortcode(null);
       if (ok) {
-        toast.success('Реф привязан к ролику');
+        toast.success('Исходник привязан к ролику');
         refetchRefsForLinking();
       } else toast.error('Не удалось привязать');
     };
@@ -1223,14 +1223,14 @@ export function Analytics() {
             Сумма просмотров роликов, у которых указан ответственный. Заполняйте логины в карточках видео в ленте.
           </p>
 
-          {/* Прикрепления: рефы без привязки ↔ ролики без рефа */}
+          {/* Прикрепления: исходники без привязки ↔ ролики без исходника */}
           {(refsWithoutShortcode.length > 0 || reelsWithoutRef.length > 0) && (
             <div className={cn(CARD, 'p-4 space-y-4')}>
               <p className="text-[13px] font-semibold text-slate-700">Прикрепления</p>
-              <p className="text-[11px] text-slate-500">Свяжи рефы из папок с выложенными роликами — тогда просмотры попадут в отчёт по ответственным.</p>
+              <p className="text-[11px] text-slate-500">Свяжи исходники из папок с выложенными роликами — тогда просмотры попадут в отчёт по ответственным.</p>
               {refsWithoutShortcode.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Рефы без привязки</p>
+                  <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Исходники без привязки</p>
                   <ul className="space-y-1.5">
                     {refsWithoutShortcode.map((ref) => (
                       <li key={ref.id} className="flex items-center justify-between gap-2 py-2 px-3 rounded-xl bg-slate-50">
@@ -1260,7 +1260,7 @@ export function Analytics() {
               )}
               {reelsWithoutRef.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Ролики без рефа</p>
+                  <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Ролики без исходника</p>
                   <ul className="space-y-1.5">
                     {reelsWithoutRef.slice(0, 10).map((reel) => (
                       <li key={reel.id} className="flex items-center justify-between gap-2 py-2 px-3 rounded-xl bg-slate-50">
@@ -1273,7 +1273,7 @@ export function Analytics() {
                             {refsWithoutShortcode.slice(0, 5).map((r) => (
                               <button key={r.id} type="button" onClick={() => handleLinkRefToReel(r.id, reel.shortcode)}
                                 className="text-left px-2 py-1.5 rounded-lg bg-white text-[11px] text-slate-600 hover:bg-indigo-50 truncate max-w-[180px]">
-                                {r.caption?.slice(0, 30) || 'Реф'}…
+                                {r.caption?.slice(0, 30) || 'Исходник'}…
                               </button>
                             ))}
                             <button type="button" onClick={() => setLinkRefForReelShortcode(null)} className="text-[10px] text-slate-400">Отмена</button>
