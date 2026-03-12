@@ -545,7 +545,7 @@ export function useRadar(
       const response = await fetch('/api/user-reels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanUsername }),
+        body: JSON.stringify({ username: cleanUsername, source: 'radar' }),
       });
 
       console.log('[Radar] API response status:', response.status);

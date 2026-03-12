@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { url, shortcode, userId, projectId } = req.body;
+  const { url, shortcode, userId, projectId, source } = req.body;
 
   if (!url && !shortcode) {
     return res.status(400).json({ error: 'url or shortcode is required' });
@@ -150,7 +150,7 @@ export default async function handler(req, res) {
         
         // Если получили данные - возвращаем
         if (result.view_count || result.like_count || result.thumbnail_url || result.owner.username || result.is_carousel) {
-          logApiCall({ apiName: 'rapidapi', action: 'reel-info', userId, projectId, metadata: { shortcode: code, owner: result.owner.username } });
+          logApiCall({ apiName: 'rapidapi', action: 'reel-info', userId, projectId, metadata: { shortcode: code, owner: result.owner.username, source } });
           return res.status(200).json(result);
         }
       }

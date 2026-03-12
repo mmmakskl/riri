@@ -107,7 +107,7 @@ export async function fetchAndCalculateProfileStats(username: string): Promise<I
     const response = await fetch('/api/user-reels', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: cleanUsername }),
+      body: JSON.stringify({ username: cleanUsername, source: 'lenta' }),
     });
     
     if (!response.ok) {

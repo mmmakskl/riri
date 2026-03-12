@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { username, count, userId, projectId } = req.body;
+  const { username, count, userId, projectId, source } = req.body;
   if (!username) return res.status(400).json({ error: 'username is required' });
 
   const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'ff21c60e3dmsh5f27d005cc9811dp1d106ejsn8dc341d3ceb2';
@@ -130,7 +130,7 @@ export default async function handler(req, res) {
 
   // Логируем реальное кол-во страниц (HTTP запросов к RapidAPI)
   const pagesUsed = allReels.length > 0 ? Math.ceil(allReels.length / 12) : 1;
-  logApiCall({ apiName: 'rapidapi', action: 'user-reels', callsCount: pagesUsed, userId, projectId, metadata: { username: cleanUsername, reelsCount: uniqueReels.length, requestedCount: targetCount } });
+  logApiCall({ apiName: 'rapidapi', action: 'user-reels', callsCount: pagesUsed, userId, projectId, metadata: { username: cleanUsername, reelsCount: uniqueReels.length, requestedCount: targetCount, source } });
 
   if (uniqueReels.length > 0) {
     return res.status(200).json({

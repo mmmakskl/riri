@@ -102,16 +102,26 @@ const ACTION_LABELS: Record<string, string> = {
   'scriptwriter-analyze-structure': 'Анализ структуры',
 };
 
-/** Раздел приложения, в котором находится кнопка */
+/** Источник вызова (кнопка в разделе) — передаётся с фронта в metadata.source */
+const SOURCE_LABELS: Record<string, string> = {
+  search: 'Поиск',
+  lenta: 'Лента',
+  radar: 'Радар',
+  analytics: 'Аналитика',
+  carousel: 'Карусели',
+  scriptwriter: 'AI-сценарист',
+};
+
+/** Раздел по action, если source не передан (старые записи) */
 const ACTION_TO_SECTION: Record<string, string> = {
   'user-reels': 'Аналитика / Радар',
   'reel-info': 'Лента / Поиск / Карусели',
   'search': 'Поиск',
   'hashtag': 'Поиск',
-  'download': 'Лента (видео)',
-  'transcribe': 'Лента (видео)',
+  'download': 'Лента',
+  'transcribe': 'Лента',
   'transcribe-carousel': 'Карусели',
-  'translate': 'Лента (видео)',
+  'translate': 'Лента',
   'script-analyze': 'AI-сценарист',
   'script-generate': 'AI-сценарист',
   'script-refine': 'AI-сценарист',
@@ -127,8 +137,10 @@ const ACTION_TO_SECTION: Record<string, string> = {
   'scriptwriter-analyze-structure': 'AI-сценарист',
 };
 
-function getSection(action: string): string {
-  return ACTION_TO_SECTION[action] || 'Другое';
+function getSection(row: UsageRow): string {
+  const src = (row.metadata as { source?: string } | null)?.source;
+  if (src && SOURCE_LABELS[src]) return SOURCE_LABELS[src];
+  return ACTION_TO_SECTION[row.action] || 'Другое';
 }
 
 function getActionLabel(action: string): string {
@@ -213,7 +225,7 @@ export function UsageStats() {
   const sectionActionUser: SectionActionUserRow[] = (() => {
     const map = new Map<string, SectionActionUserRow>();
     for (const r of rows) {
-      const section = getSection(r.action);
+      const section = getSection(r);
       const uid = r.user_id || '(неизвестен)';
       const key = `${section}::${r.action}::${uid}`;
       const cur = map.get(key);

@@ -420,7 +420,7 @@ export async function getReelByUrl(urlOrShortcode: string): Promise<InstagramSea
       const infoResponse = await fetch('/api/reel-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, shortcode }),
+        body: JSON.stringify({ url, shortcode, source: 'lenta' }),
       });
       
       if (infoResponse.ok) {

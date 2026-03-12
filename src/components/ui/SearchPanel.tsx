@@ -716,7 +716,7 @@ export function SearchPanel({ isOpen, onClose, initialTab = DEFAULT_TAB, current
       const res = await fetch('/api/reel-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: linkUrl }),
+        body: JSON.stringify({ url: linkUrl, source: 'search' }),
       });
       const data = await res.json();
       

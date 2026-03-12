@@ -175,7 +175,7 @@ export function useProjectAnalytics(projectId: string | null) {
       const res = await fetch('/api/user-reels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, count }),
+        body: JSON.stringify({ username, count, source: 'analytics' }),
       });
       const data = await res.json();
 

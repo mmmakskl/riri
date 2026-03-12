@@ -537,7 +537,7 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
         const infoRes = await fetch('/api/reel-info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shortcode, url: video.url }),
+          body: JSON.stringify({ shortcode, url: video.url, source: 'lenta' }),
         });
         const infoData = await infoRes.json();
         thumbnailToSave = infoData?.thumbnail_url || infoData?.carousel_slides?.[0] || '';
@@ -845,7 +845,7 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
         const res = await fetch('/api/reel-info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shortcode }),
+          body: JSON.stringify({ shortcode, source: 'lenta' }),
         });
         const data = await res.json();
         const thumbUrl = data?.thumbnail_url || data?.carousel_slides?.[0];

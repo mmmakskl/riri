@@ -20,7 +20,7 @@ export async function getVideoDownloadUrl(instagramUrl: string): Promise<string 
     const reelRes = await fetch('/api/reel-info', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: instagramUrl }),
+      body: JSON.stringify({ url: instagramUrl, source: 'lenta' }),
     });
     const reelData = await reelRes.json();
 

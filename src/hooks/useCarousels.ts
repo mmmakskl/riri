@@ -329,7 +329,7 @@ export function useCarousels() {
       const res = await fetch('/api/reel-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shortcode, url: `https://www.instagram.com/p/${shortcode}/` }),
+        body: JSON.stringify({ shortcode, url: `https://www.instagram.com/p/${shortcode}/`, source: 'carousel' }),
       });
       const data = await res.json();
       const slideUrls = data?.carousel_slides;

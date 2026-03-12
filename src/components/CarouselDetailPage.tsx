@@ -207,7 +207,7 @@ export function CarouselDetailPage({ carousel, onBack, onRefreshData }: Carousel
       const res = await fetch('/api/reel-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, source: 'carousel' }),
       });
       const data = await res.json();
       if (data.success && data.is_carousel && Array.isArray(data.carousel_slides) && data.carousel_slides.length > 0) {

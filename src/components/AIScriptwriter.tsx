@@ -713,7 +713,7 @@ export function AIScriptwriter() {
     if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
     setReelInputs(prev => { const n = [...prev]; n[index] = { ...n[index], url, loading: true, error: null }; return n; });
     try {
-      const res = await fetch('/api/reel-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+      const res = await fetch('/api/reel-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, source: 'scriptwriter' }) });
       const data = await res.json();
       if (!data || data.error) { setReelInputs(prev => { const n = [...prev]; n[index] = { ...n[index], loading: false, error: data?.error || 'Ошибка' }; return n; }); return; }
       await deduct(cost);
