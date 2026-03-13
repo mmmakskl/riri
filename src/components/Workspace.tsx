@@ -2026,30 +2026,34 @@ export function Workspace(_props?: WorkspaceProps) {
         </motion.div>
       )}
       </AnimatePresence>
-      {/* Description Modal — портал в body, прокручиваемое */}
+      {/* Description Modal — портал в body, высокий z-index, непрозрачный фон */}
       {descriptionModalText !== null && createPortal(
         <div
-          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setDescriptionModalText(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="description-modal-title"
         >
           <div
-            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden"
+            className="relative z-10 bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
-              <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+              <h3 id="description-modal-title" className="text-lg font-semibold text-slate-800 flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-slate-600" />
                 Описание
               </h3>
               <button
                 onClick={() => setDescriptionModalText(null)}
                 className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
+                aria-label="Закрыть"
               >
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              <div className="p-5 overflow-y-auto overflow-x-hidden min-h-0 scrollbar-visible overflow-scroll-touch" style={{ maxHeight: 'calc(85vh - 5.5rem)' }}>
+              <div className="p-5 overflow-y-auto overflow-x-hidden min-h-0 scrollbar-visible" style={{ maxHeight: 'calc(85vh - 5.5rem)' }}>
                 <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap break-words">
                   {descriptionModalText || 'Нет описания'}
                 </p>
