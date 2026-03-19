@@ -547,26 +547,47 @@ export function Workspace(_props?: WorkspaceProps) {
       ? filtered.reduce((s, v) => s + (v.view_count || 0), 0) / filtered.length
       : 0;
     
+    /** При равенстве по метрике — у «сценария без видео» сортируем по названию (A–Я) */
+    const tieBreak = (a: ZoneVideo, b: ZoneVideo, primary: number): number => {
+      if (primary !== 0) return primary;
+      if (isScriptOnlyFeedCard(a) && isScriptOnlyFeedCard(b)) {
+        const byTitle = (a.title || '').localeCompare(b.title || '', 'ru', {
+          sensitivity: 'base',
+          numeric: true,
+        });
+        if (byTitle !== 0) return byTitle;
+      }
+      return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+    };
+
     return [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'viral': {
-          return withViral(b) - withViral(a);
+          return tieBreak(a, b, withViral(b) - withViral(a));
         }
         case 'views':
-          return (b.view_count || 0) - (a.view_count || 0);
+          return tieBreak(a, b, (b.view_count || 0) - (a.view_count || 0));
         case 'views_from_avg': {
           const deltaA = (a.view_count || 0) - avgViews;
           const deltaB = (b.view_count || 0) - avgViews;
-          return deltaB - deltaA;
+          return tieBreak(a, b, deltaB - deltaA);
         }
         case 'likes':
-          return (b.like_count || 0) - (a.like_count || 0);
+          return tieBreak(a, b, (b.like_count || 0) - (a.like_count || 0));
         case 'date':
-          return String(b.taken_at || b.created_at || '').localeCompare(String(a.taken_at || a.created_at || ''));
+          return tieBreak(
+            a,
+            b,
+            String(b.taken_at || b.created_at || '').localeCompare(String(a.taken_at || a.created_at || ''))
+          );
         case 'recent':
-          return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+          return tieBreak(
+            a,
+            b,
+            String(b.created_at || '').localeCompare(String(a.created_at || ''))
+          );
         default:
-          return 0;
+          return tieBreak(a, b, 0);
       }
     });
   };
