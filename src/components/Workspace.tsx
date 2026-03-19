@@ -2164,6 +2164,7 @@ export function Workspace(_props?: WorkspaceProps) {
                 <span className="text-sm font-medium text-slate-700">Папка</span>
                 <GlassFolderPickButton
                   className="w-full"
+                  variant="light"
                   folders={folderConfigs
                     .filter((f): f is typeof f & { id: string } => f.id != null)
                     .map((f) => ({ id: f.id, title: f.title, color: f.color, iconType: f.iconType }))}

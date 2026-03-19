@@ -21,11 +21,15 @@ type GlassFolderPickButtonProps = {
   className?: string;
   /** Портал в body — чтобы выпадало поверх хедера */
   usePortal?: boolean;
+  /** Светлый стиль (белый фон) — для модалок с белым фоном */
+  variant?: 'default' | 'light';
 };
 
 /**
  * Кнопка выбора папки в стиле iOS / Liquid Glass: отдельная от «Добавить», кастомный список вместо native select.
  */
+const POPOVER_MAX_H = 280;
+
 export function GlassFolderPickButton({
   folders,
   value,
@@ -33,12 +37,13 @@ export function GlassFolderPickButton({
   disabled,
   className,
   usePortal = true,
+  variant = 'default',
 }: GlassFolderPickButtonProps) {
   const popoverId = useId();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUp: false });
 
   const selected = value === null
     ? null
@@ -66,12 +71,23 @@ export function GlassFolderPickButton({
 
   useEffect(() => {
     if (!open || !btnRef.current) return;
-    const r = btnRef.current.getBoundingClientRect();
-    setCoords({
-      top: r.bottom + 8,
-      left: r.left,
-      width: Math.max(r.width, 220),
-    });
+    const update = () => {
+      if (!btnRef.current) return;
+      const r = btnRef.current.getBoundingClientRect();
+      const vh = typeof window !== 'undefined' ? window.innerHeight : 600;
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 400;
+      const spaceBelow = vh - r.bottom;
+      const spaceAbove = r.top;
+      const openUp = spaceBelow < POPOVER_MAX_H + 16 && spaceAbove > spaceBelow;
+      const top = openUp ? r.top - POPOVER_MAX_H - 8 : r.bottom + 8;
+      let left = r.left;
+      const w = Math.max(r.width, 220);
+      if (left + w > vw - 12) left = vw - w - 12;
+      if (left < 12) left = 12;
+      setCoords({ top, left, width: w, openUp });
+    };
+    update();
+    requestAnimationFrame(update);
   }, [open]);
 
   const list = (
@@ -79,9 +95,11 @@ export function GlassFolderPickButton({
       id={popoverId}
       role="listbox"
       className={cn(
-        'rounded-2xl p-1.5 min-w-[220px] max-h-[min(320px,50vh)] overflow-y-auto',
-        'bg-glass-white/92 backdrop-blur-glass-xl border border-white/[0.38] shadow-glass',
-        'animate-in fade-in zoom-in-95 duration-150 custom-scrollbar-light'
+        'rounded-2xl p-1.5 min-w-[220px] overflow-y-auto overscroll-contain',
+        'animate-in fade-in zoom-in-95 duration-150 custom-scrollbar-light',
+        variant === 'light'
+          ? 'bg-white border border-slate-200/90 shadow-xl'
+          : 'bg-white/92 backdrop-blur-xl border border-white/60 shadow-glass'
       )}
       style={
         usePortal
@@ -90,9 +108,11 @@ export function GlassFolderPickButton({
               top: coords.top,
               left: coords.left,
               width: coords.width,
+              maxHeight: POPOVER_MAX_H,
               zIndex: 10050,
+              WebkitOverflowScrolling: 'touch',
             }
-          : undefined
+          : { maxHeight: POPOVER_MAX_H, WebkitOverflowScrolling: 'touch' }
       }
     >
       <button
@@ -105,16 +125,16 @@ export function GlassFolderPickButton({
         }}
         className={cn(
           'w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[44px] rounded-xl text-left transition-colors touch-manipulation',
-          value === null
-            ? 'bg-white/88 border border-white/60 shadow-glass-sm'
-            : 'hover:bg-white/65 active:bg-white/50'
+          variant === 'light'
+            ? (value === null ? 'bg-slate-100' : 'hover:bg-slate-50 active:bg-slate-100')
+            : (value === null ? 'bg-white/88 border border-white/60 shadow-glass-sm' : 'hover:bg-white/65 active:bg-white/50')
         )}
       >
         <GlassFolderIcon iconType="inbox" color="#64748b" size={20} simple />
         <span className="text-sm font-medium text-slate-800 flex-1">Без папки</span>
         {value === null && <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" strokeWidth={2.5} />}
       </button>
-      <div className="h-px bg-white/45 my-1 mx-1" aria-hidden />
+      <div className={cn('h-px my-1 mx-1', variant === 'light' ? 'bg-slate-200' : 'bg-white/45')} aria-hidden />
       {folders.map((f) => {
         if (f.id === null) return null;
         const isSel = value === f.id;
@@ -130,9 +150,9 @@ export function GlassFolderPickButton({
             }}
             className={cn(
               'w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[44px] rounded-xl text-left transition-colors touch-manipulation',
-              isSel
-                ? 'bg-white/88 border border-white/60 shadow-glass-sm'
-                : 'hover:bg-white/65 active:bg-white/50'
+              variant === 'light'
+                ? (isSel ? 'bg-slate-100' : 'hover:bg-slate-50 active:bg-slate-100')
+                : (isSel ? 'bg-white/88 border border-white/60 shadow-glass-sm' : 'hover:bg-white/65 active:bg-white/50')
             )}
           >
             <GlassFolderIcon iconType={f.iconType} color={f.color} size={20} simple />
@@ -153,11 +173,12 @@ export function GlassFolderPickButton({
         onClick={() => !disabled && setOpen((o) => !o)}
         className={cn(
           'flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-2xl w-full sm:w-auto sm:min-w-[140px]',
-          'bg-white/82 backdrop-blur-glass border border-white/60 shadow-glass-sm',
-          'text-slate-800 text-sm font-semibold transition-colors',
-          'hover:bg-white/90 active:scale-[0.98] touch-manipulation',
+          variant === 'light'
+            ? 'bg-white border border-slate-200 shadow-sm text-slate-800 hover:bg-slate-50'
+            : 'bg-white/82 backdrop-blur-glass border border-white/60 shadow-glass-sm hover:bg-white/90',
+          'text-sm font-semibold transition-colors active:scale-[0.98] touch-manipulation',
           'disabled:opacity-50 disabled:pointer-events-none',
-          open && 'ring-2 ring-slate-200/80 bg-white/90'
+          open && (variant === 'light' ? 'ring-2 ring-slate-200 bg-slate-50' : 'ring-2 ring-slate-200/80 bg-white/90')
         )}
       >
         <FolderOpen className="w-4 h-4 text-slate-500 flex-shrink-0" strokeWidth={2.5} />
