@@ -400,7 +400,7 @@ function ReelCard({ reel, onClick, layout, avgBottom3Views }: {
         viewCount={views}
         likeCount={likes}
         commentCount={comments}
-        date={dateLabel}
+        date={reel.taken_at != null ? String(reel.taken_at) : undefined}
         viralCoef={viralCoef}
         viralMultiplier={viralMult}
         onClick={onClick}
@@ -596,9 +596,9 @@ function ReelDetailModal({ reel, onClose, getReelSnapshots, allReels, avgBottom3
     toast.success('Скопировано в ленту');
   };
 
-  return (
+  return createPortal(
     <motion.div
-      className="fixed inset-0 z-50 flex flex-col bg-[#f5f6f8]"
+      className="fixed inset-0 z-[20000] flex flex-col bg-[#f5f6f8]"
       style={{ willChange: 'transform' }}
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
@@ -1191,7 +1191,8 @@ function ReelDetailModal({ reel, onClose, getReelSnapshots, allReels, avgBottom3
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }
 

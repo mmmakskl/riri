@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { proxyImageUrl, PLACEHOLDER_270x360 } from "../../utils/imagePlaceholder";
-import { Sparkles, MoreVertical, ArrowRight, Eye, Heart, Loader2, FileText, AlertCircle, MessageCircle, TrendingUp, Calendar, BookOpen, PenLine, Mic } from "lucide-react";
+import { Sparkles, MoreVertical, ArrowRight, Eye, Heart, Loader2, AlertCircle, MessageCircle, TrendingUp, BookOpen, PenLine, Calendar, Mic } from "lucide-react";
 
 export interface VideoGradientCardProps {
   thumbnailUrl?: string;
@@ -17,6 +17,8 @@ export interface VideoGradientCardProps {
   viralMultiplier?: number | null; // Множитель залётности (во сколько раз больше среднего автора)
   folderBadge?: { name: string; color: string }; // Бейдж папки
   transcriptStatus?: string | null; // null, downloading, processing, completed, error
+  /** Есть ли сценарий у видео */
+  hasScript?: boolean;
   onClick?: () => void;
   onAdd?: () => void;
   onDragStart?: (e: React.DragEvent) => void;
@@ -29,8 +31,6 @@ export interface VideoGradientCardProps {
   onThumbnailError?: (videoId: string, shortcode: string, silent?: boolean) => void | Promise<void>;
   /** При успешной загрузке — сохранить в Storage (если URL не из Storage) */
   onThumbnailLoad?: (videoId: string, shortcode: string, url: string) => void | Promise<void>;
-  /** Быстрая транскрипция прямо из ленты (без открытия карточки) */
-  onTranscribeClick?: () => void;
   videoId?: string;
   shortcode?: string;
   className?: string;
@@ -38,6 +38,19 @@ export interface VideoGradientCardProps {
   priority?: boolean;
   /** Ручное видео без ссылки — показываем превью сценария */
   isManual?: boolean;
+  /** Кнопка быстрой транскрибации — появляется при наведении */
+  onTranscribeClick?: () => void;
+}
+
+function formatShortDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  // Если число (unix timestamp)
+  const asNum = Number(dateStr);
+  const d = !isNaN(asNum) && asNum > 0
+    ? new Date(asNum > 1e12 ? asNum : asNum * 1000)
+    : new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
 }
 
 function formatNumber(num?: number): string {
@@ -59,6 +72,7 @@ export const VideoGradientCard = ({
   viralMultiplier,
   folderBadge,
   transcriptStatus,
+  hasScript = false,
   onClick,
   onAdd,
   onDragStart,
@@ -66,7 +80,6 @@ export const VideoGradientCard = ({
   onFolderMenuToggle,
   folderMenu,
   onDescriptionClick,
-  onTranscribeClick,
   onThumbnailError,
   onThumbnailLoad,
   videoId,
@@ -74,6 +87,7 @@ export const VideoGradientCard = ({
   className,
   priority = false,
   isManual = false,
+  onTranscribeClick,
 }: VideoGradientCardProps) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -293,77 +307,68 @@ export const VideoGradientCard = ({
               )}
             </div>
             
-            {/* Мини-кнопка «Описание» — полный текст поста */}
-            {onDescriptionClick && (
-              <motion.button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onDescriptionClick(); }}
-                title="Описание"
-                className={cn(
-                  "p-2 rounded-full md:backdrop-blur-[20px] border border-white/20 flex items-center justify-center",
-                  "bg-black/50 md:bg-black/30 text-white hover:bg-white/20 transition-colors touch-manipulation",
-                  "max-md:!opacity-100"
+            {/* Right top controls: description + menu */}
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1">
+                {/* Мини-кнопка «Транскрибировать» */}
+                {onTranscribeClick && !isManual && transcriptStatus !== 'completed' && transcriptStatus !== 'processing' && transcriptStatus !== 'downloading' && (
+                  <motion.button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onTranscribeClick(); }}
+                    title="Транскрибировать"
+                    className={cn(
+                      "p-2 rounded-full md:backdrop-blur-[20px] border border-white/20 flex items-center justify-center",
+                      "bg-black/50 md:bg-black/30 text-white hover:bg-emerald-500/80 transition-colors touch-manipulation",
+                      "max-md:hidden"
+                    )}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: isHovered ? 1 : 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Mic className="w-3.5 h-3.5" strokeWidth={2} />
+                  </motion.button>
                 )}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isMobile || isHovered ? 1 : 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <BookOpen className="w-4 h-4" strokeWidth={2} />
-              </motion.button>
-            )}
-            
-            {/* Кнопка Транскрипция — только desktop, только при наведении, только если нет транскрипта */}
-            {onTranscribeClick && !isManual && transcriptStatus !== 'completed' && transcriptStatus !== 'processing' && transcriptStatus !== 'downloading' && transcriptStatus !== 'queued' && (
-              <motion.button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onTranscribeClick(); }}
-                title="Транскрибировать видео в текст"
-                className={cn(
-                  "px-2 py-1 rounded-lg border border-white/25 flex items-center gap-1 transition-colors touch-manipulation",
-                  "bg-black/40 text-white hover:bg-emerald-500/80 max-md:hidden"
+                {/* Мини-кнопка «Описание» */}
+                {onDescriptionClick && (
+                  <motion.button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onDescriptionClick(); }}
+                    title="Описание"
+                    className={cn(
+                      "p-2 rounded-full md:backdrop-blur-[20px] border border-white/20 flex items-center justify-center",
+                      "bg-black/50 md:bg-black/30 text-white hover:bg-white/20 transition-colors touch-manipulation",
+                      "max-md:!opacity-100"
+                    )}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: isMobile || isHovered ? 1 : 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <BookOpen className="w-4 h-4" strokeWidth={2} />
+                  </motion.button>
                 )}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isHovered ? 1 : 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <Mic className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} />
-                <span className="text-[10px] font-semibold whitespace-nowrap">Текст</span>
-              </motion.button>
-            )}
-
-            {/* Menu button — на мобильных всегда виден, на десктопе при наведении */}
-            {onFolderMenuToggle && (
-              <motion.button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onFolderMenuToggle();
-                }}
-                className={cn(
-                  "p-2.5 min-w-[44px] min-h-[44px] rounded-full backdrop-blur-sm transition-all touch-manipulation flex items-center justify-center",
-                  "max-md:!opacity-100 max-md:bg-black/40 max-md:text-white",
-                  showFolderMenu 
-                    ? "bg-white text-slate-800" 
-                    : "bg-black/30 text-white hover:bg-white/20"
+                {/* Menu button */}
+                {onFolderMenuToggle && (
+                  <motion.button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFolderMenuToggle();
+                    }}
+                    className={cn(
+                      "p-2.5 min-w-[44px] min-h-[44px] rounded-full backdrop-blur-sm transition-all touch-manipulation flex items-center justify-center",
+                      "max-md:!opacity-100 max-md:bg-black/40 max-md:text-white",
+                      showFolderMenu
+                        ? "bg-white text-slate-800"
+                        : "bg-black/30 text-white hover:bg-white/20"
+                    )}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: isMobile || isHovered || showFolderMenu ? 1 : 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <MoreVertical className="w-4 h-4 md:w-4 md:h-4" strokeWidth={2.5} />
+                  </motion.button>
                 )}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isMobile || isHovered || showFolderMenu ? 1 : 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <MoreVertical className="w-4 h-4 md:w-4 md:h-4" strokeWidth={2.5} />
-              </motion.button>
-            )}
-            
-            {/* Date badge - если нет кнопки меню */}
-            {date && !onFolderMenuToggle && (
-              <motion.div
-                className="px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-sm text-white/90 text-xs font-medium"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-              >
-                {date}
-              </motion.div>
-            )}
+              </div>
+            </div>
           </div>
 
 
@@ -425,93 +430,67 @@ export const VideoGradientCard = ({
               )}
               {!isManual && date && (
                 <motion.div
-                  className="px-2.5 py-1.5 rounded-pill md:backdrop-blur-[20px] md:backdrop-saturate-[180%] flex items-center gap-1.5 border border-white/35 bg-black/36 md:bg-white/20 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]"
+                  className="px-2 py-1 md:px-2.5 md:py-1.5 rounded-pill md:backdrop-blur-[20px] md:backdrop-saturate-[180%] flex items-center gap-1 border border-white/35 bg-black/36 md:bg-white/20 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.35 }}
                 >
-                  <Calendar className="w-3 h-3 flex-shrink-0" strokeWidth={2} />
-                  <span className="text-[11px] font-semibold text-white/90">{date}</span>
+                  <Calendar className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" strokeWidth={2} />
+                  <span className="text-[10px] md:text-[11px] font-semibold text-white/90 whitespace-nowrap">{formatShortDate(date)}</span>
                 </motion.div>
               )}
             </div>
 
-            {/* Transcript status badge */}
-            {transcriptStatus && transcriptStatus !== 'completed' && (
-              <div className="mb-2">
-                <span 
-                  className={cn(
-                    "inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-semibold backdrop-blur-sm",
-                    transcriptStatus === 'error' || transcriptStatus === 'timeout'
-                      ? "bg-red-500/20 text-red-200 border border-red-500/30"
-                      : "bg-slate-500/20 text-slate-200 border border-slate-500/30"
-                  )}
-                >
-                  {transcriptStatus === 'downloading' && (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" strokeWidth={2.5} />
-                      Скачивание...
-                    </>
-                  )}
-                  {transcriptStatus === 'processing' && (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" strokeWidth={2.5} />
-                      Транскрибация...
-                    </>
-                  )}
-                  {transcriptStatus === 'queued' && (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" strokeWidth={2.5} />
-                      В очереди...
-                    </>
-                  )}
-                  {transcriptStatus === 'error' && (
-                    <>
-                      <AlertCircle className="w-3 h-3" strokeWidth={2.5} />
-                      Ошибка
-                    </>
-                  )}
-                  {transcriptStatus === 'timeout' && (
-                    <>
-                      <AlertCircle className="w-3 h-3" strokeWidth={2.5} />
-                      Таймаут
-                    </>
-                  )}
-                </span>
-              </div>
-            )}
+            {/* Нижние бейджи: папка + сценарий — всегда два в ряд */}
+            {!isManual && (
+              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                {/* Транскрипция в процессе (необязательный 3й) */}
+                {transcriptStatus && transcriptStatus !== 'completed' && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold",
+                      transcriptStatus === 'error' || transcriptStatus === 'timeout'
+                        ? "bg-red-500/20 text-red-200 border border-red-500/30"
+                        : "bg-slate-500/20 text-slate-200 border border-slate-500/30"
+                    )}
+                  >
+                    {(transcriptStatus === 'downloading' || transcriptStatus === 'processing' || transcriptStatus === 'queued') && (
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" strokeWidth={2.5} />
+                    )}
+                    {(transcriptStatus === 'error' || transcriptStatus === 'timeout') && (
+                      <AlertCircle className="w-2.5 h-2.5" strokeWidth={2.5} />
+                    )}
+                    {transcriptStatus === 'downloading' ? 'Скачивание...' :
+                     transcriptStatus === 'processing' ? 'Транскрибация...' :
+                     transcriptStatus === 'queued' ? 'В очереди...' :
+                     transcriptStatus === 'error' ? 'Ошибка' : 'Таймаут'}
+                  </span>
+                )}
 
-            {/* Transcript completed badge */}
-            {transcriptStatus === 'completed' && (
-              <div className="mb-2">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-500/30">
-                  <FileText className="w-3 h-3" strokeWidth={2.5} />
-                  Текст готов
-                </span>
-              </div>
-            )}
-
-            {/* Folder badge - показывает в какой папке находится видео */}
-            {folderBadge && !transcriptStatus && (
-              <div className="mb-2">
-                <span 
+                {/* Папка — всегда */}
+                <span
                   className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold"
-                  style={{ 
-                    backgroundColor: folderBadge.color + '30',
-                    color: 'white',
-                    border: `1px solid ${folderBadge.color}50`
-                  }}
+                  style={folderBadge && folderBadge.color !== '#94a3b8'
+                    ? { backgroundColor: folderBadge.color + '30', color: 'white', border: `1px solid ${folderBadge.color}50` }
+                    : { backgroundColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.18)' }
+                  }
                 >
-                  {folderBadge.name}
+                  {folderBadge?.name || 'Без папки'}
+                </span>
+
+                {/* Сценарий — всегда */}
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold",
+                    hasScript
+                      ? "bg-emerald-500/25 text-emerald-200 border border-emerald-500/35"
+                      : "bg-white/10 text-white/55 border border-white/20"
+                  )}
+                >
+                  <PenLine className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2.5} />
+                  {hasScript ? 'Сценарий ✓' : 'Без сценария'}
                 </span>
               </div>
-            )}
-
-            {/* Caption (для ручных — уже показываем в превью, здесь доп. контекст) */}
-            {caption && !folderBadge && !isManual && (
-              <p className="text-white/74 text-xs leading-relaxed line-clamp-2 mb-3 break-words overflow-hidden drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
-                {caption}
-              </p>
             )}
 
             {/* Action button - для добавления (когда нет folderMenu) */}

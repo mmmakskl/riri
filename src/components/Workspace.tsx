@@ -1561,11 +1561,11 @@ export function Workspace(_props?: WorkspaceProps) {
                 const viralMult = calculateViralMultiplier(video.view_count || 0, profileStats);
                 const finalViralCoef = applyViralMultiplierToCoefficient(viralCoef, viralMult);
                 
-                // Бейдж папки - показываем если не выбрана конкретная папка
-                const folderBadge = !selectedFolderId ? {
+                // Бейдж папки — всегда показываем (если выбрана папка, показываем её имя)
+                const folderBadge = {
                   name: video.folder_id ? getFolderName(video.folder_id) : 'Без папки',
                   color: video.folder_id ? getFolderColor(video.folder_id) : '#94a3b8'
-                } : undefined;
+                };
                 
                 return (
                   <div key={`wrap-${video.id}-${idx}`} className={cn("relative", cardMenuVideoId === video.id && "z-[60]")}>
@@ -1811,6 +1811,7 @@ export function Workspace(_props?: WorkspaceProps) {
                           value={carouselAddToFolderId}
                           onChange={setCarouselAddToFolderId}
                           disabled={isAddingCarouselByLink}
+                          variant="light"
                         />
                     </div>
                   </div>
@@ -1884,9 +1885,9 @@ export function Workspace(_props?: WorkspaceProps) {
                       const cViralCoef = calculateCarouselViralCoefficient(c.like_count, c.taken_at);
                       const cProfileStats = c.owner_username ? profileStatsCache.get(c.owner_username.toLowerCase()) : null;
                       const cViralMult = calculateCarouselViralMultiplier(c.like_count, cProfileStats ?? null);
-                      const cFolderName = !selectedCarouselFolderId
-                        ? (c.folder_id ? (carouselFolderConfigs.find(f => f.id === c.folder_id)?.title || 'Папка') : 'Без папки')
-                        : null;
+                      const cFolderName = c.folder_id
+                        ? (carouselFolderConfigs.find(f => f.id === c.folder_id)?.title || 'Папка')
+                        : 'Без папки';
                       const cFolderColor = c.folder_id
                         ? (carouselFolderConfigs.find(f => f.id === c.folder_id)?.color || '#94a3b8')
                         : '#94a3b8';
@@ -1975,16 +1976,17 @@ export function Workspace(_props?: WorkspaceProps) {
                                   )}
                                 </div>
 
-                                {/* Папка + сценарий */}
+                                {/* Папка + сценарий — всегда два в ряд */}
                                 <div className="flex items-center gap-1 flex-wrap">
-                                  {cFolderName && (
-                                    <span
-                                      className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold"
-                                      style={{ backgroundColor: cFolderColor + '30', color: 'white', border: `1px solid ${cFolderColor}50` }}
-                                    >
-                                      {cFolderName}
-                                    </span>
-                                  )}
+                                  <span
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold"
+                                    style={cFolderColor !== '#94a3b8'
+                                      ? { backgroundColor: cFolderColor + '30', color: 'white', border: `1px solid ${cFolderColor}50` }
+                                      : { backgroundColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.18)' }
+                                    }
+                                  >
+                                    {cFolderName}
+                                  </span>
                                   <span className={cn(
                                     'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold',
                                     c.script_text ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-500/35' : 'bg-white/10 text-white/55 border border-white/20'
