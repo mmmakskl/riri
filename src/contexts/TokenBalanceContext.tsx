@@ -30,7 +30,7 @@ export function useTokenBalance() {
     return {
       balance: 0,
       loading: false,
-      deduct: async () => false,
+      deduct: async (_amount?: number, _meta?: { action?: string; section?: string; label?: string }) => false,
       canAfford: () => false,
       refetch: async () => {},
       lastDeduct: 0,

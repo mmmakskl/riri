@@ -122,12 +122,25 @@ export async function fetchAndCalculateProfileStats(username: string): Promise<I
       return null;
     }
     
-    const reels: ReelStats[] = data.reels.map((reel: any) => ({
+    // Фильтруем пробные ролики (trial reels): они показываются только не-подписчикам
+    // и имеют искусственно низкие просмотры (200-2000 вместо 50K+), что искажает статистику
+    const filteredReels = data.reels.filter((reel: any) => !reel.is_trial);
+    const trialCount = data.reels.length - filteredReels.length;
+    if (trialCount > 0) {
+      console.log(`[ProfileStats] Filtered out ${trialCount} trial reels for @${cleanUsername}`);
+    }
+
+    const reels: ReelStats[] = filteredReels.map((reel: any) => ({
       view_count: reel.play_count || reel.view_count || 0,
       like_count: reel.like_count || 0,
       comment_count: reel.comment_count || 0,
     }));
-    
+
+    if (reels.length === 0) {
+      console.log(`[ProfileStats] No non-trial reels found for @${cleanUsername}`);
+      return null;
+    }
+
     // Рассчитываем статистику
     const views = reels.map(r => r.view_count).filter(v => v > 0);
     const likes = reels.map(r => r.like_count).filter(v => v > 0);
@@ -192,12 +205,19 @@ export async function fetchAndCalculateProfileStats(username: string): Promise<I
  */
 export async function saveProfileStatsFromReels(
   username: string,
-  reels: Array<{ view_count?: number; play_count?: number; like_count?: number; comment_count?: number }>
+  reels: Array<{ view_count?: number; play_count?: number; like_count?: number; comment_count?: number; is_trial?: boolean }>
 ): Promise<InstagramProfileStats | null> {
   const cleanUsername = username.toLowerCase().replace('@', '');
   if (!reels || reels.length === 0) return null;
 
-  const mapped: ReelStats[] = reels.map(r => ({
+  // Фильтруем пробные ролики
+  const nonTrialReels = reels.filter(r => !r.is_trial);
+  const reelsToUse = nonTrialReels.length > 0 ? nonTrialReels : reels;
+  if (nonTrialReels.length < reels.length) {
+    console.log(`[ProfileStats] Filtered ${reels.length - nonTrialReels.length} trial reels from stats for @${cleanUsername}`);
+  }
+
+  const mapped: ReelStats[] = reelsToUse.map(r => ({
     view_count: (r as any).play_count || r.view_count || 0,
     like_count: r.like_count || 0,
     comment_count: r.comment_count || 0,

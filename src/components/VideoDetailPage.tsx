@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   ChevronLeft, Play, Eye, Heart, MessageCircle, Calendar, 
@@ -66,6 +66,7 @@ interface VideoDetailPageProps {
   video: VideoData;
   onBack: () => void;
   onRefreshData?: () => Promise<void>;
+  autoTranscribe?: boolean;
 }
 
 const DEFAULT_LINKS_TEMPLATE: ProjectTemplateItem[] = [
@@ -166,7 +167,7 @@ function calculateViralCoefficient(views?: number, takenAt?: string | number): n
   return Math.round((views / daysOld / 1000) * 10) / 10;
 }
 
-export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPageProps) {
+export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }: VideoDetailPageProps) {
   const [transcriptTab, setTranscriptTab] = useState<'original' | 'translation'>('original');
   const [transcript, setTranscript] = useState(video.transcript_text || '');
   const [translation, setTranslation] = useState(video.translation_text || ''); // Загружаем из БД
@@ -197,6 +198,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
   const [isSavingTranscript, setIsSavingTranscript] = useState(false);
   const [viralMultiplier, setViralMultiplier] = useState<number | null>(null);
   const [isCalculatingViral, setIsCalculatingViral] = useState(false);
+  const [profileStats, setProfileStats] = useState<import('../services/profileStatsService').InstagramProfileStats | null>(null);
   const { currentProject, currentProjectId, updateProject, updateProjectStyle, addProjectStyle, refetch: refetchProjects } = useProjectContext();
   const { user } = useAuth();
   const radarUserId = user?.id || 'anonymous';
@@ -457,7 +459,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
         })
         .eq('id', video.id);
 
-      await deduct(loadCost);
+      await deduct(loadCost, { action: 'load_video', section: 'lenta', label: 'Загрузить видео' });
       await runTranscription(finalVideoUrl, transcribeCost);
     } catch (err) {
       console.error('Load/transcribe error:', err);
@@ -479,7 +481,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
         video.id, globalVideo?.id ?? undefined, shortcode, videoUrl
       );
       if (transcriptId) {
-        if (transcribeCost != null) await deduct(transcribeCost);
+        if (transcribeCost != null) await deduct(transcribeCost, { action: 'transcribe_video', section: 'lenta', label: 'Транскрибировать' });
         setLocalTranscriptId(transcriptId);
         setTranscriptStatus('processing');
         toast.success('Транскрибация запущена', { description: 'Можно уйти - результат подгрузится сам' });
@@ -495,6 +497,18 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
       setIsStartingTranscription(false);
     }
   };
+
+  // При autoTranscribe — автоматически стартуем транскрибацию
+  const autoTranscribeCalledRef = React.useRef(false);
+  useEffect(() => {
+    if (autoTranscribe && !autoTranscribeCalledRef.current) {
+      autoTranscribeCalledRef.current = true;
+      // Небольшая задержка чтобы модал успел открыться
+      const t = setTimeout(() => { handleLoadAndTranscribe(); }, 400);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoTranscribe]);
 
   // При открытии - проверяем есть ли транскрибация и перевод в глобальной таблице
   useEffect(() => {
@@ -557,9 +571,10 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
       if (stats) {
         const mult = calculateViralMultiplier(video.view_count || 0, stats);
         setViralMultiplier(mult);
+        setProfileStats(stats);
       }
     };
-    
+
     loadProfileStats();
   }, [video.owner_username, video.view_count]);
   
@@ -578,9 +593,10 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
     try {
       const stats = await getOrUpdateProfileStats(video.owner_username, true);
       if (stats) {
-        await deduct(cost);
+        await deduct(cost, { action: 'calculate_viral', section: 'lenta', label: 'Рассчитать виральность' });
         const mult = calculateViralMultiplier(video.view_count || 0, stats);
         setViralMultiplier(mult);
+        setProfileStats(stats);
         toast.success('Виральность рассчитана', {
           description: mult ? `В ${mult.toFixed(1)}x раз ${mult >= 1 ? 'больше' : 'меньше'} среднего` : 'Нет данных для сравнения',
         });
@@ -682,7 +698,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
       const data = await response.json();
       
       if (data.success && data.translated) {
-        await deduct(cost);
+        await deduct(cost, { action: 'translate', section: 'lenta', label: 'Перевести' });
         setTranslation(data.translated);
         setTranscriptTab('translation');
 
@@ -777,7 +793,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
       });
       const data = await res.json();
       if (data.success && data.script) {
-        await deduct(cost);
+        await deduct(cost, { action: 'generate_script', section: 'lenta', label: 'Генерировать сценарий' });
         setScript(data.script);
         setScriptGeneratedByStyle(true);
         setLastGeneratedStyleId(style.id);
@@ -828,7 +844,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
       });
       const data = await res.json();
       if (data.success && data.prompt) {
-        await deduct(cost);
+        await deduct(cost, { action: 'refine_prompt', section: 'lenta', label: 'Дообучить промт' });
         if (styleForRefine) {
           await updateProjectStyle(currentProject.id, styleForRefine.id, { prompt: data.prompt, meta: data.meta });
         } else {
@@ -880,7 +896,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
       });
       const data = await res.json();
       if (data.success && data.prompt) {
-        await deduct(cost);
+        await deduct(cost, { action: 'train_style', section: 'lenta', label: 'Дообучить на правках' });
         if (styleForRefine) {
           await updateProjectStyle(currentProject.id, styleForRefine.id, { prompt: data.prompt, meta: data.meta });
         } else {
@@ -935,7 +951,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
       });
       const data = await res.json();
       if (data.success && data.prompt) {
-        await deduct(cost);
+        await deduct(cost, { action: 'refine_prompt', section: 'lenta', label: 'Дообучить промт' });
         if (styleForRefine) {
           await updateProjectStyle(currentProject.id, styleForRefine.id, { prompt: data.prompt, meta: data.meta });
         } else {
@@ -1014,7 +1030,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
       });
       const data = await res.json();
       if (data.success && data.reply) {
-        await deduct(cost);
+        await deduct(cost, { action: 'chat_with_prompt', section: 'lenta', label: 'Чат с промтом' });
         setPromptChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
         if (data.suggested_prompt) setPendingSuggestedPrompt(data.suggested_prompt);
       } else {
@@ -1426,6 +1442,46 @@ export function VideoDetailPage({ video, onBack, onRefreshData }: VideoDetailPag
                 )}
               </div>
             </div>
+
+            {/* Совет от Рири */}
+            {!video.is_manual && (() => {
+              const videoDate = parseDate(video.taken_at);
+              const isOlderThanMonth = videoDate
+                ? (Date.now() - videoDate.getTime()) > 30 * 24 * 60 * 60 * 1000
+                : false;
+              const isWeakRef = viralMultiplier !== null && viralMultiplier < 10;
+              if (!isOlderThanMonth && !isWeakRef) return null;
+              return (
+                <div className="rounded-card-xl p-3 shadow-glass bg-amber-50/80 backdrop-blur-glass-xl border border-amber-200/60 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">✨</span>
+                    <span className="text-xs font-semibold text-amber-800">Совет от Рири</span>
+                  </div>
+                  {isWeakRef && profileStats && (
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      Этот референс — несильный залёт. В среднем у{' '}
+                      <span className="font-semibold">@{video.owner_username}</span> набирают{' '}
+                      <span className="font-semibold">{formatNumber(profileStats.avg_views)}</span> просм.,
+                      а этот ролик набрал{' '}
+                      <span className="font-semibold">{formatNumber(video.view_count)}</span> — это всего{' '}
+                      <span className="font-semibold">{viralMultiplier !== null ? `${Math.round(viralMultiplier * 10) / 10}x` : '—'}</span> от среднего.
+                      Возможно, слабый референс.
+                    </p>
+                  )}
+                  {isWeakRef && !profileStats && (
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      Этот ролик набрал в {viralMultiplier !== null ? `${Math.round(viralMultiplier)}x` : 'меньше'} раз меньше 10x от минимального у автора —
+                      возможно, не лучший референс. Нажми «Полный расчёт» для деталей.
+                    </p>
+                  )}
+                  {isOlderThanMonth && (
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      📅 Это видео вышло больше месяца назад — тренд мог уйти. Если ролик не связан с трендом, всё ок.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Actions — скрываем "Открыть" для ручных видео */}
             {!video.is_manual && video.url && (

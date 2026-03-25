@@ -240,7 +240,7 @@ export function CarouselDetailPage({ carousel, onBack, onRefreshData }: Carousel
     try {
       const result = await transcribeCarouselByUrls(slideUrls);
       if (result?.success && result.transcript_text) {
-        await deduct(cost);
+        await deduct(cost, { action: "transcribe_carousel", section: "carousel", label: "Транскрибировать карусель" });
         setTranscript(result.transcript_text);
         setTranscriptTab('original');
         setTranscriptStatus('completed');
@@ -277,7 +277,7 @@ export function CarouselDetailPage({ carousel, onBack, onRefreshData }: Carousel
       });
       const data = await res.json();
       if (data.success && data.translated) {
-        await deduct(cost);
+        await deduct(cost, { action: "translate", section: "carousel", label: "Перевести" });
         setTranslation(data.translated);
         setTranscriptTab('translation');
         await updateCarouselTranslation(carousel.id, data.translated);
@@ -333,7 +333,7 @@ export function CarouselDetailPage({ carousel, onBack, onRefreshData }: Carousel
       });
       const data = await res.json();
       if (data.success && data.script) {
-        await deduct(cost);
+        await deduct(cost, { action: "generate_script", section: "carousel", label: "Генерировать сценарий" });
         setScript(data.script);
         setLastGeneratedStyleId(style.id);
         toast.success(`Сценарий по подчерку «${style.name}»`);
@@ -376,7 +376,7 @@ export function CarouselDetailPage({ carousel, onBack, onRefreshData }: Carousel
       });
       const data = await res.json();
       if (data.success && data.prompt) {
-        await deduct(cost);
+        await deduct(cost, { action: "refine_prompt", section: "carousel", label: "Обучить подчерк" });
         if (styleForRefine) {
           await updateProjectStyle(currentProject.id, styleForRefine.id, { prompt: data.prompt, meta: data.meta });
         } else {
@@ -426,7 +426,7 @@ export function CarouselDetailPage({ carousel, onBack, onRefreshData }: Carousel
       });
       const data = await res.json();
       if (data.success && data.prompt) {
-        await deduct(cost);
+        await deduct(cost, { action: "refine_prompt", section: "carousel", label: "Улучшить по правкам" });
         if (styleForRefine) {
           await updateProjectStyle(currentProject.id, styleForRefine.id, { prompt: data.prompt, meta: data.meta });
         } else {
@@ -479,7 +479,7 @@ export function CarouselDetailPage({ carousel, onBack, onRefreshData }: Carousel
       });
       const data = await res.json();
       if (data.success && data.prompt) {
-        await deduct(cost);
+        await deduct(cost, { action: "refine_prompt", section: "carousel", label: "Ответ на уточнение" });
         if (styleForRefine) {
           await updateProjectStyle(currentProject.id, styleForRefine.id, { prompt: data.prompt, meta: data.meta });
         } else {

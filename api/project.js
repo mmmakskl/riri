@@ -76,9 +76,10 @@ export default async function handler(req, res) {
   if (action === 'remove') return handleRemove(req, res, supabase);
   if (action === 'role') return handleRole(req, res, supabase);
   if (action === 'usage-stats') return handleUsageStats(req, res, supabaseUrl, supabaseServiceKey);
-  if (action === 'user-balances') return handleUserBalances(req, res, supabase);
+  if (action === 'user-token-stats') return handleUserTokenStats(req, res, supabaseUrl, supabaseServiceKey);
+  if (action === 'token-spend-details') return handleTokenSpendDetails(req, res, supabaseUrl, supabaseServiceKey);
 
-  return res.status(400).json({ error: 'Unknown action', expected: ['invite', 'remove', 'role', 'usage-stats', 'user-balances'] });
+  return res.status(400).json({ error: 'Unknown action', expected: ['invite', 'remove', 'role', 'usage-stats', 'user-token-stats', 'token-spend-details'] });
 }
 
 async function sendInviteEmailNotification(projectName, email, memberId) {
@@ -287,19 +288,214 @@ async function handleUsageStats(req, res, supabaseUrl, supabaseServiceKey) {
   }
 }
 
-async function handleUserBalances(req, res, supabase) {
+async function handleUserTokenStats(req, res, supabaseUrl, supabaseServiceKey) {
   const { userId } = req.body || {};
+
   if (!userId || userId.toLowerCase() !== ADMIN_USERNAME.toLowerCase()) {
     return res.status(403).json({ error: 'Forbidden' });
   }
+
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('user_id, telegram_username, token_balance, created_at')
-      .order('token_balance', { ascending: true });
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ success: true, users: data || [] });
+    const headers = {
+      'apikey': supabaseServiceKey,
+      'Authorization': `Bearer ${supabaseServiceKey}`,
+      'Content-Type': 'application/json',
+    };
+
+    // 1. Получаем всех пользователей с балансом токенов
+    const usersUrl = `${supabaseUrl}/rest/v1/users?select=id,telegram_username,telegram_id,token_balance,created_at&order=token_balance.asc&limit=500`;
+    const usersResp = await fetch(usersUrl, { headers });
+    if (!usersResp.ok) {
+      const text = await usersResp.text();
+      return res.status(500).json({ error: 'Failed to fetch users', details: text });
+    }
+    const users = await usersResp.json();
+
+    // 2. Получаем историю трат токенов из api_usage_log (последние 90 дней)
+    const since90 = new Date();
+    since90.setDate(since90.getDate() - 90);
+    const logsUrl = `${supabaseUrl}/rest/v1/api_usage_log?select=user_id,calls_count,created_at&created_at=gte.${since90.toISOString()}&order=created_at.desc&limit=50000`;
+    const logsResp = await fetch(logsUrl, { headers });
+    let logs = [];
+    if (logsResp.ok) {
+      logs = await logsResp.json();
+    }
+
+    // 3. Рассчитываем статистику трат по неделям/месяцам для каждого пользователя
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Группируем логи по user_id
+    const logsByUser = {};
+    for (const log of logs) {
+      const uid = log.user_id || 'unknown';
+      if (!logsByUser[uid]) logsByUser[uid] = [];
+      logsByUser[uid].push(log);
+    }
+
+    // Для каждого пользователя считаем:
+    // - последний вход (last_active)
+    // - потрачено токенов за неделю
+    // - потрачено токенов за месяц
+    // - потрачено токенов всего за 90 дней
+    // Примечание: calls_count — количество API-запросов, не токенов.
+    // Приближённо считаем calls_count как прокси трат.
+    const userStats = users.map(user => {
+      const uid = user.id;
+      const userLogs = logsByUser[uid] || [];
+
+      const lastLog = userLogs[0]; // уже отсортировано по desc
+      const last_active = lastLog?.created_at || null;
+
+      const spent_week = userLogs
+        .filter(l => new Date(l.created_at) >= weekAgo)
+        .reduce((sum, l) => sum + (l.calls_count || 1), 0);
+
+      const spent_month = userLogs
+        .filter(l => new Date(l.created_at) >= monthAgo)
+        .reduce((sum, l) => sum + (l.calls_count || 1), 0);
+
+      const spent_total_90d = userLogs
+        .reduce((sum, l) => sum + (l.calls_count || 1), 0);
+
+      return {
+        id: uid,
+        username: user.telegram_username || `tg_${user.telegram_id}` || 'unknown',
+        token_balance: user.token_balance || 0,
+        last_active,
+        spent_week,
+        spent_month,
+        spent_total_90d,
+        actions_count: userLogs.length,
+      };
+    });
+
+    // Сортируем по активности (spent_month desc)
+    userStats.sort((a, b) => b.spent_month - a.spent_month);
+
+    return res.status(200).json({ success: true, users: userStats });
   } catch (err) {
+    console.error('[user-token-stats]', err?.message);
+    return res.status(500).json({ error: err?.message || 'Internal error' });
+  }
+}
+
+/**
+ * Детальная статистика трат токенов из token_transactions.
+ * Возвращает:
+ *   - rows: последние транзакции
+ *   - byUser: { username -> { total, week, month, byAction: { action -> { tokens, count } } } }
+ *   - byAction: { action -> { tokens, count, label, section } }
+ *   - bySection: { section -> { tokens, count } }
+ *   - daily: [{ date, tokens, count }] (последние 30 дней)
+ */
+async function handleTokenSpendDetails(req, res, supabaseUrl, supabaseServiceKey) {
+  const { userId, period = '30d' } = req.body || {};
+
+  if (!userId || userId.toLowerCase() !== ADMIN_USERNAME.toLowerCase()) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const headers = {
+      'apikey': supabaseServiceKey,
+      'Authorization': `Bearer ${supabaseServiceKey}`,
+      'Content-Type': 'application/json',
+    };
+
+    // Вычисляем дату начала периода
+    const now = new Date();
+    let sinceDate = new Date(0);
+    if (period === '7d') sinceDate = new Date(now.getTime() - 7 * 86400000);
+    else if (period === '30d') sinceDate = new Date(now.getTime() - 30 * 86400000);
+    else if (period === '90d') sinceDate = new Date(now.getTime() - 90 * 86400000);
+
+    const weekAgo = new Date(now.getTime() - 7 * 86400000);
+    const monthAgo = new Date(now.getTime() - 30 * 86400000);
+
+    // Проверяем, существует ли таблица token_transactions
+    let txRows = [];
+    const txUrl = `${supabaseUrl}/rest/v1/token_transactions?select=id,user_id,tg_username,amount,action,section,label,created_at&created_at=gte.${sinceDate.toISOString()}&order=created_at.desc&limit=5000`;
+    const txResp = await fetch(txUrl, { headers });
+    if (txResp.ok) {
+      txRows = await txResp.json();
+    }
+
+    // Получаем пользователей для маппинга user_id -> username
+    const usersUrl = `${supabaseUrl}/rest/v1/users?select=id,telegram_username&limit=500`;
+    const usersResp = await fetch(usersUrl, { headers });
+    const usersRaw = usersResp.ok ? await usersResp.json() : [];
+    const userMap = {};
+    for (const u of usersRaw) {
+      if (u.id) userMap[u.id] = u.telegram_username || u.id;
+    }
+
+    // Обогащаем tg_username из userMap если не заполнен
+    for (const row of txRows) {
+      if (!row.tg_username && row.user_id && userMap[row.user_id]) {
+        row.tg_username = userMap[row.user_id];
+      }
+    }
+
+    // byUser: username -> stat
+    const byUser = {};
+    for (const row of txRows) {
+      const uname = row.tg_username || row.user_id || 'unknown';
+      if (!byUser[uname]) byUser[uname] = { total: 0, week: 0, month: 0, byAction: {} };
+      const ts = new Date(row.created_at);
+      byUser[uname].total += row.amount;
+      if (ts >= weekAgo) byUser[uname].week += row.amount;
+      if (ts >= monthAgo) byUser[uname].month += row.amount;
+      const act = row.action || 'unknown';
+      if (!byUser[uname].byAction[act]) byUser[uname].byAction[act] = { tokens: 0, count: 0, label: row.label || act, section: row.section };
+      byUser[uname].byAction[act].tokens += row.amount;
+      byUser[uname].byAction[act].count += 1;
+    }
+
+    // byAction: action -> stat
+    const byAction = {};
+    for (const row of txRows) {
+      const act = row.action || 'unknown';
+      if (!byAction[act]) byAction[act] = { tokens: 0, count: 0, label: row.label || act, section: row.section };
+      byAction[act].tokens += row.amount;
+      byAction[act].count += 1;
+    }
+
+    // bySection: section -> stat
+    const bySection = {};
+    for (const row of txRows) {
+      const sec = row.section || 'other';
+      if (!bySection[sec]) bySection[sec] = { tokens: 0, count: 0 };
+      bySection[sec].tokens += row.amount;
+      bySection[sec].count += 1;
+    }
+
+    // daily: по дням
+    const dailyMap = {};
+    for (const row of txRows) {
+      const date = row.created_at.slice(0, 10);
+      if (!dailyMap[date]) dailyMap[date] = { date, tokens: 0, count: 0 };
+      dailyMap[date].tokens += row.amount;
+      dailyMap[date].count += 1;
+    }
+    const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+    const totalTokens = txRows.reduce((s, r) => s + (r.amount || 0), 0);
+
+    return res.status(200).json({
+      success: true,
+      totalTokens,
+      rowCount: txRows.length,
+      rows: txRows.slice(0, 100),  // последние 100 транзакций
+      byUser,
+      byAction,
+      bySection,
+      daily,
+      tableExists: txResp.ok,
+    });
+  } catch (err) {
+    console.error('[token-spend-details]', err?.message);
     return res.status(500).json({ error: err?.message || 'Internal error' });
   }
 }

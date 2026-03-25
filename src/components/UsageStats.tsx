@@ -4,7 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 import { cn } from '../utils/cn';
 import {
   Activity, TrendingUp, Zap, Globe, RefreshCw,
-  BarChart2, Users, Calendar
+  BarChart2, Users, Calendar, Coins, Clock, ChevronDown, ChevronUp,
+  ChevronRight, Layers
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -57,6 +58,30 @@ interface DaySummary {
 }
 
 type Period = '7d' | '30d' | '90d' | 'all';
+
+interface UserTokenStat {
+  id: string;
+  username: string;
+  token_balance: number;
+  last_active: string | null;
+  spent_week: number;
+  spent_month: number;
+  spent_total_90d: number;
+  actions_count: number;
+}
+
+interface ActionStat { tokens: number; count: number; label: string; section: string | null; }
+interface UserSpendStat { total: number; week: number; month: number; byAction: Record<string, ActionStat>; }
+interface DailyTokenStat { date: string; tokens: number; count: number; }
+interface TokenSpendData {
+  totalTokens: number;
+  rowCount: number;
+  byUser: Record<string, UserSpendStat>;
+  byAction: Record<string, ActionStat>;
+  bySection: Record<string, { tokens: number; count: number }>;
+  daily: DailyTokenStat[];
+  tableExists: boolean;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -154,38 +179,23 @@ function getActionLabel(action: string): string {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-interface UserBalanceRow {
-  user_id: string;
-  telegram_username: string | null;
-  token_balance: number;
-  created_at: string;
-}
-
 export function UsageStats() {
   const { user } = useAuth();
   const [period, setPeriod] = useState<Period>('30d');
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [userBalances, setUserBalances] = useState<UserBalanceRow[]>([]);
-  const [balancesLoading, setBalancesLoading] = useState(true);
+  const [tokenStats, setTokenStats] = useState<UserTokenStat[]>([]);
+  const [tokenStatsLoading, setTokenStatsLoading] = useState(false);
+  const [showTokenStats, setShowTokenStats] = useState(false);
+  const [tokenSortKey, setTokenSortKey] = useState<'token_balance' | 'spent_month' | 'spent_week' | 'last_active'>('spent_month');
 
-  const fetchBalances = useCallback(async () => {
-    setBalancesLoading(true);
-    try {
-      const res = await fetch('/api/project', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'user-balances', userId: user?.telegram_username }),
-      });
-      const json = await res.json();
-      if (res.ok && json.success) setUserBalances(json.users || []);
-    } catch { /* ignore */ } finally {
-      setBalancesLoading(false);
-    }
-  }, [user?.telegram_username]);
-
-  useEffect(() => { fetchBalances(); }, [fetchBalances]);
+  // Детальная аналитика токенов
+  const [tokenSpend, setTokenSpend] = useState<TokenSpendData | null>(null);
+  const [tokenSpendLoading, setTokenSpendLoading] = useState(false);
+  const [showTokenSpend, setShowTokenSpend] = useState(false);
+  const [spendPeriod, setSpendPeriod] = useState<Period>('30d');
+  const [expandedSpendUser, setExpandedSpendUser] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -211,7 +221,53 @@ export function UsageStats() {
     }
   }, [period, user?.telegram_username]);
 
+  const fetchTokenStats = useCallback(async () => {
+    setTokenStatsLoading(true);
+    try {
+      const res = await fetch('/api/project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'user-token-stats', userId: user?.telegram_username }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setTokenStats(json.users || []);
+      }
+    } catch (e) {
+      console.error('Error fetching token stats:', e);
+    } finally {
+      setTokenStatsLoading(false);
+    }
+  }, [user?.telegram_username]);
+
+  const fetchTokenSpend = useCallback(async () => {
+    setTokenSpendLoading(true);
+    try {
+      const res = await fetch('/api/project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'token-spend-details', userId: user?.telegram_username, period: spendPeriod }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) setTokenSpend(json);
+    } catch (e) {
+      console.error('Error fetching token spend:', e);
+    } finally {
+      setTokenSpendLoading(false);
+    }
+  }, [user?.telegram_username, spendPeriod]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (showTokenStats && tokenStats.length === 0) {
+      fetchTokenStats();
+    }
+  }, [showTokenStats, fetchTokenStats, tokenStats.length]);
+
+  useEffect(() => {
+    if (showTokenSpend) fetchTokenSpend();
+  }, [showTokenSpend, fetchTokenSpend]);
 
   // ── Computed stats ───────────────────────────────────────────────────────
 
@@ -477,48 +533,6 @@ export function UsageStats() {
             </div>
           </div>
 
-          {/* User Balances */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-400" />
-                Баланс коинов пользователей
-              </h2>
-              <button onClick={fetchBalances} className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1">
-                <RefreshCw className="w-3 h-3" />
-                Обновить
-              </button>
-            </div>
-            {balancesLoading ? (
-              <p className="text-xs text-slate-400">Загрузка...</p>
-            ) : userBalances.length === 0 ? (
-              <p className="text-xs text-slate-400">Нет данных</p>
-            ) : (
-              <div className="space-y-1.5">
-                {userBalances.map(u => {
-                  const name = u.telegram_username ? `@${u.telegram_username}` : u.user_id.slice(0, 8) + '…';
-                  const bal = u.token_balance ?? 0;
-                  const maxBal = Math.max(...userBalances.map(x => x.token_balance ?? 0), 1);
-                  const pct = Math.round((bal / maxBal) * 100);
-                  return (
-                    <div key={u.user_id} className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 w-32 truncate flex-shrink-0">{name}</span>
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full", bal <= 3 ? "bg-red-400" : bal <= 10 ? "bg-amber-400" : "bg-emerald-400")}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className={cn("text-xs font-semibold tabular-nums w-8 text-right flex-shrink-0", bal <= 3 ? "text-red-500" : bal <= 10 ? "text-amber-500" : "text-slate-700")}>
-                        {bal}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           {/* By user */}
           <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
@@ -582,6 +596,292 @@ export function UsageStats() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Token balances per user */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+            <button
+              onClick={() => setShowTokenStats(v => !v)}
+              className="w-full flex items-center justify-between"
+            >
+              <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Coins className="w-4 h-4 text-amber-500" />
+                Токены пользователей
+              </h2>
+              <div className="flex items-center gap-2">
+                {tokenStatsLoading && <span className="text-xs text-slate-400">загрузка...</span>}
+                {showTokenStats ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </div>
+            </button>
+
+            {showTokenStats && (
+              <div className="mt-3">
+                {/* Sort controls */}
+                <div className="flex gap-1 mb-3 flex-wrap">
+                  {(['spent_month', 'spent_week', 'token_balance', 'last_active'] as const).map(key => (
+                    <button
+                      key={key}
+                      onClick={() => setTokenSortKey(key)}
+                      className={cn(
+                        'px-2 py-1 rounded-lg text-xs font-medium transition-all',
+                        tokenSortKey === key
+                          ? 'bg-slate-800 text-white'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                      )}
+                    >
+                      {key === 'spent_month' ? 'За месяц' : key === 'spent_week' ? 'За неделю' : key === 'token_balance' ? 'Баланс' : 'Активность'}
+                    </button>
+                  ))}
+                  <button
+                    onClick={fetchTokenStats}
+                    className="ml-auto p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all"
+                    title="Обновить"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {tokenStats.length === 0 && !tokenStatsLoading && (
+                  <p className="text-xs text-slate-400 text-center py-4">Нет данных</p>
+                )}
+
+                {tokenStats.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-slate-400 border-b border-slate-100">
+                          <th className="text-left pb-2 font-medium">Пользователь</th>
+                          <th className="text-right pb-2 font-medium">Баланс</th>
+                          <th className="text-right pb-2 font-medium">За нед.</th>
+                          <th className="text-right pb-2 font-medium">За мес.</th>
+                          <th className="text-left pb-2 font-medium pl-3">Последний визит</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...tokenStats]
+                          .sort((a, b) => {
+                            if (tokenSortKey === 'last_active') {
+                              if (!a.last_active) return 1;
+                              if (!b.last_active) return -1;
+                              return new Date(b.last_active).getTime() - new Date(a.last_active).getTime();
+                            }
+                            return (b[tokenSortKey] as number) - (a[tokenSortKey] as number);
+                          })
+                          .map(u => (
+                          <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                            <td className="py-1.5 pr-2 font-medium text-slate-700">@{u.username}</td>
+                            <td className="py-1.5 text-right">
+                              <span className={cn(
+                                'font-semibold',
+                                u.token_balance > 100 ? 'text-emerald-600' :
+                                u.token_balance > 20 ? 'text-amber-600' : 'text-red-500'
+                              )}>
+                                {u.token_balance}
+                              </span>
+                            </td>
+                            <td className="py-1.5 text-right text-slate-500">{u.spent_week || '—'}</td>
+                            <td className="py-1.5 text-right text-slate-500">{u.spent_month || '—'}</td>
+                            <td className="py-1.5 pl-3 text-slate-400 whitespace-nowrap flex items-center gap-1">
+                              <Clock className="w-3 h-3 flex-shrink-0" />
+                              {u.last_active
+                                ? new Date(u.last_active).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                                : 'никогда'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Token Spend Details */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+            <button onClick={() => setShowTokenSpend(v => !v)} className="w-full flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-violet-500" />
+                Детальные траты токенов по кнопкам
+              </h2>
+              <div className="flex items-center gap-2">
+                {tokenSpendLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-400" />}
+                {showTokenSpend ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </div>
+            </button>
+
+            {showTokenSpend && (
+              <div className="mt-3 space-y-4">
+                {/* Period + refresh */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-slate-500">Период:</span>
+                  {(['7d', '30d', '90d', 'all'] as Period[]).map(p => (
+                    <button key={p} onClick={() => setSpendPeriod(p)}
+                      className={cn('px-2 py-1 rounded-lg text-xs font-medium transition-all',
+                        spendPeriod === p ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')}>
+                      {p === '7d' ? '7 дней' : p === '30d' ? '30 дней' : p === '90d' ? '90 дней' : 'Всё'}
+                    </button>
+                  ))}
+                  <button onClick={fetchTokenSpend} className="ml-auto p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {!tokenSpend?.tableExists && !tokenSpendLoading && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-xs">
+                    Таблица <code>token_transactions</code> ещё не создана. Запусти миграцию <code>create_token_transactions.sql</code> в Supabase SQL Editor.
+                  </div>
+                )}
+
+                {tokenSpend && tokenSpend.rowCount === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">Транзакций пока нет — данные накопятся после действий пользователей</p>
+                )}
+
+                {tokenSpend && tokenSpend.rowCount > 0 && (
+                  <>
+                    {/* KPIs */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-3 rounded-xl bg-violet-50 border border-violet-100">
+                        <p className="text-[10px] text-violet-600 font-medium">Токенов потрачено</p>
+                        <p className="text-lg font-bold text-violet-700">{fmt(tokenSpend.totalTokens)}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-blue-50 border border-blue-100">
+                        <p className="text-[10px] text-blue-600 font-medium">Транзакций</p>
+                        <p className="text-lg font-bold text-blue-700">{fmt(tokenSpend.rowCount)}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <p className="text-[10px] text-slate-600 font-medium">Пользователей</p>
+                        <p className="text-lg font-bold text-slate-700">{Object.keys(tokenSpend.byUser).length}</p>
+                      </div>
+                    </div>
+
+                    {/* Мини-чарт по дням */}
+                    {tokenSpend.daily.length > 1 && (() => {
+                      const maxT = Math.max(...tokenSpend.daily.map(d => d.tokens), 1);
+                      return (
+                        <div className="bg-slate-50 rounded-xl p-3">
+                          <p className="text-[10px] text-slate-500 font-medium mb-2">Токены по дням</p>
+                          <div className="flex items-end gap-0.5 h-16">
+                            {tokenSpend.daily.map(d => (
+                              <div key={d.date} className="flex-1 flex flex-col items-center group relative min-w-[12px]">
+                                <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] rounded px-1 py-0.5 opacity-0 group-hover:opacity-100 whitespace-nowrap z-10 pointer-events-none">
+                                  {d.date.slice(5)}: {d.tokens} коин
+                                </div>
+                                <div className="w-full rounded-sm bg-violet-400" style={{ height: `${Math.max(2, (d.tokens / maxT) * 52)}px` }} />
+                                <span className="text-[8px] text-slate-400 mt-0.5">{d.date.slice(8)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* По разделам */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600 mb-2">По разделам</p>
+                      <div className="space-y-1">
+                        {Object.entries(tokenSpend.bySection)
+                          .sort((a, b) => b[1].tokens - a[1].tokens)
+                          .map(([sec, stat]) => {
+                            const maxSec = Math.max(...Object.values(tokenSpend.bySection).map(s => s.tokens), 1);
+                            return (
+                              <div key={sec} className="flex items-center gap-2 text-xs">
+                                <span className="w-24 text-slate-500 truncate">{sec}</span>
+                                <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-violet-400 rounded-full" style={{ width: `${(stat.tokens / maxSec) * 100}%` }} />
+                                </div>
+                                <span className="w-14 text-right font-semibold text-slate-700">{stat.tokens} коин</span>
+                                <span className="text-slate-400">({stat.count}×)</span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+
+                    {/* По кнопкам/действиям */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600 mb-2">По кнопкам (топ-20)</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-slate-400 border-b border-slate-100">
+                              <th className="text-left pb-1.5 font-medium">Действие</th>
+                              <th className="text-left pb-1.5 font-medium">Раздел</th>
+                              <th className="text-right pb-1.5 font-medium">Коинов</th>
+                              <th className="text-right pb-1.5 font-medium">Раз</th>
+                              <th className="text-right pb-1.5 font-medium">Ср/раз</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(tokenSpend.byAction)
+                              .sort((a, b) => b[1].tokens - a[1].tokens)
+                              .slice(0, 20)
+                              .map(([action, stat]) => (
+                                <tr key={action} className="border-b border-slate-50 hover:bg-slate-50">
+                                  <td className="py-1.5 pr-2 text-slate-700">{stat.label || action}</td>
+                                  <td className="py-1.5 pr-2 text-slate-400">{stat.section || '—'}</td>
+                                  <td className="py-1.5 text-right font-semibold text-violet-600">{stat.tokens}</td>
+                                  <td className="py-1.5 text-right text-slate-500">{stat.count}</td>
+                                  <td className="py-1.5 text-right text-slate-400">{(stat.tokens / stat.count).toFixed(1)}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* По пользователям */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600 mb-2">По пользователям</p>
+                      <div className="space-y-1">
+                        {Object.entries(tokenSpend.byUser)
+                          .sort((a, b) => b[1].total - a[1].total)
+                          .map(([uname, stat]) => (
+                            <div key={uname} className="rounded-xl border border-slate-100 overflow-hidden">
+                              <button
+                                onClick={() => setExpandedSpendUser(expandedSpendUser === uname ? null : uname)}
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-xs text-left"
+                              >
+                                <ChevronRight className={cn('w-3 h-3 text-slate-400 transition-transform flex-shrink-0', expandedSpendUser === uname && 'rotate-90')} />
+                                <span className="font-semibold text-slate-700 flex-1">@{uname}</span>
+                                <span className="text-slate-400">7д: <b className="text-slate-700">{stat.week}</b></span>
+                                <span className="text-slate-400">30д: <b className="text-slate-700">{stat.month}</b></span>
+                                <span className="bg-violet-100 text-violet-700 font-semibold px-2 py-0.5 rounded-lg">Итого: {stat.total}</span>
+                              </button>
+                              {expandedSpendUser === uname && (
+                                <div className="px-3 pb-2 bg-slate-50/60">
+                                  <table className="w-full text-xs mt-1">
+                                    <thead>
+                                      <tr className="text-slate-400">
+                                        <th className="text-left pb-1 font-medium">Действие</th>
+                                        <th className="text-left pb-1 font-medium">Раздел</th>
+                                        <th className="text-right pb-1 font-medium">Коин</th>
+                                        <th className="text-right pb-1 font-medium">Раз</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {Object.entries(stat.byAction)
+                                        .sort((a, b) => b[1].tokens - a[1].tokens)
+                                        .map(([act, as_]) => (
+                                          <tr key={act} className="border-t border-slate-100">
+                                            <td className="py-1 pr-2 text-slate-700">{as_.label || act}</td>
+                                            <td className="py-1 pr-2 text-slate-400">{as_.section || '—'}</td>
+                                            <td className="py-1 text-right font-semibold text-violet-600">{as_.tokens}</td>
+                                            <td className="py-1 text-right text-slate-400">{as_.count}</td>
+                                          </tr>
+                                        ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Recent log */}

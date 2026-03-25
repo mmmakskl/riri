@@ -27,6 +27,20 @@ export default async function handler(req, res) {
     return Array.isArray(items) ? items : [];
   };
 
+  // Helper: определяем, является ли ролик пробным (trial reels)
+  // Пробный режим: видео показывается только не-подписчикам, play_count обычно < 5000
+  // В API это может быть product_type === 'trial_reels', audience_category, или is_trial_reel
+  const isTrialReel = (item) => {
+    const pt = item.product_type || item.media_type_label || '';
+    if (pt === 'trial_reels' || pt === 'trial') return true;
+    if (item.is_trial_reel === true) return true;
+    if (item.audience_category === 'only_non_followers') return true;
+    // Дополнительная эвристика: clips_play_count (просмотры в ленте рилсов) vs play_count (общие)
+    // Если clips_play_count есть и значительно меньше play_count — это может быть пробный
+    // (но это ненадёжно, так что только явные флаги)
+    return false;
+  };
+
   // Helper: map raw item → reel object
   const mapReel = (item) => ({
     id: item.id || item.pk,
@@ -39,6 +53,8 @@ export default async function handler(req, res) {
     comment_count: item.comment_count || item.edge_media_to_comment?.count || 0,
     taken_at: item.taken_at || item.taken_at_timestamp,
     owner: { username: cleanUsername },
+    product_type: item.product_type || 'clips',
+    is_trial: isTrialReel(item),
   });
 
   // Helper: filter pinned/highlighted reels

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { cn } from "../../utils/cn";
 import type { LucideIcon } from "lucide-react";
 
@@ -59,6 +59,7 @@ export const MobileBottomBar = React.forwardRef<HTMLElement, MobileBottomBarProp
             padding: "5px 2px 6px",
           }}
         >
+          <LayoutGroup id="mobile-tab-bar">
           <ul
             role="presentation"
             style={{ display: "flex", alignItems: "center", background: "transparent", border: "none", padding: 0, margin: 0, listStyle: "none" }}
@@ -175,6 +176,7 @@ export const MobileBottomBar = React.forwardRef<HTMLElement, MobileBottomBarProp
               );
             })}
           </ul>
+          </LayoutGroup>
         </div>
       </nav>
     );

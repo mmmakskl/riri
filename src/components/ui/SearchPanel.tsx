@@ -659,7 +659,7 @@ export function SearchPanel({ isOpen, onClose, initialTab = DEFAULT_TAB, current
     
     const added = await addRadarProfile(username, currentProjectId, radarAddFrequencyDays);
     if (added) {
-      await deduct(radarAddCost);
+      await deduct(radarAddCost, { action: 'radar_add_profile', section: 'radar', label: 'Добавить в радар' });
       toast.success(`@${username} добавлен в радар`, {
         description: `Проект: ${currentProjectName}. Обновление каждые ${radarAddFrequencyDays} дн. Загружаем видео...`,
       });
@@ -699,7 +699,7 @@ export function SearchPanel({ isOpen, onClose, initialTab = DEFAULT_TAB, current
         const username = profileMatch[1].replace('@', '').toLowerCase();
         const added = await addRadarProfile(username, currentProjectId, radarAddFrequencyDays);
         if (added) {
-          await deduct(linkCost);
+          await deduct(linkCost, { action: "radar_add_profile", section: "radar", label: "Добавить профиль по ссылке" });
           toast.success(`@${username} добавлен в радар`, {
             description: `Проект: ${currentProjectName}. Обновление каждые ${radarAddFrequencyDays} дн. Загружаем видео...`,
           });
@@ -739,7 +739,7 @@ export function SearchPanel({ isOpen, onClose, initialTab = DEFAULT_TAB, current
             slide_urls: data.carousel_slides,
           });
           if (added && mountedRef.current) {
-            await deduct(cost);
+            await deduct(cost, { action: "add_carousel", section: "search", label: "Добавить карусель" });
             setLinkPreview({
               id: shortcode,
               shortcode,
@@ -776,7 +776,7 @@ export function SearchPanel({ isOpen, onClose, initialTab = DEFAULT_TAB, current
           });
           if (!savedVideo) return;
           if (mountedRef.current) {
-            await deduct(cost);
+            await deduct(cost, { action: "link_add", section: "search", label: "Добавить рилс по ссылке" });
             setLinkPreview({
               id: shortcode,
               shortcode,
@@ -1314,7 +1314,7 @@ const match = linkPreview.url.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
                               return;
                             }
                             await refreshRadar();
-                            await deduct(cost);
+                            await deduct(cost, { action: "radar_refresh_all", section: "radar", label: "Обновить все профили" });
                             toast.info('Обновляем все профили...', {
                               description: 'Видео автоматически добавятся в "Все видео"',
                             });

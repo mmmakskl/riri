@@ -84,20 +84,17 @@ export const DesktopSidebar = ({
   children,
 }: DesktopSidebarProps) => {
   return (
-    <motion.div
+    <div
       className={cn(
         "px-4 py-4 hidden md:flex md:flex-col flex-shrink-0",
         "my-3 ml-3 rounded-[28px]",
         "bg-white border border-slate-200/60 shadow-[0_8px_32px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.04)]",
         className
       )}
-      animate={{
-        width: "260px",
-      }}
-      transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+      style={{ width: 260 }}
     >
       {children}
-    </motion.div>
+    </div>
   );
 };
 
@@ -217,11 +214,9 @@ export const SidebarLink = ({
         })}
       </div>
       <motion.span
-        animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
-          opacity: animate ? (open ? 1 : 0) : 1,
-        }}
-        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+        animate={{ opacity: animate ? (open ? 1 : 0) : 1 }}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
+        style={{ display: open || !animate ? 'inline-block' : 'none' }}
         className={cn(
           "text-sm font-medium whitespace-nowrap overflow-hidden font-heading tracking-[-0.01em]",
           !disabled && "group-hover/sidebar:translate-x-0.5 transition-transform duration-150"
@@ -231,10 +226,9 @@ export const SidebarLink = ({
       </motion.span>
       {rightElement != null && (
         <motion.span
-          animate={{
-            display: animate ? (open ? "flex" : "none") : "flex",
-            opacity: animate ? (open ? 1 : 0) : 1,
-          }}
+          animate={{ opacity: animate ? (open ? 1 : 0) : 1 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          style={{ display: open || !animate ? 'flex' : 'none' }}
           className="ml-auto flex-shrink-0"
         >
           {rightElement}
@@ -242,10 +236,9 @@ export const SidebarLink = ({
       )}
       {rightElement == null && badge !== undefined && badge > 0 && (
         <motion.span
-          animate={{
-            display: animate ? (open ? "flex" : "none") : "flex",
-            opacity: animate ? (open ? 1 : 0) : 1,
-          }}
+          animate={{ opacity: animate ? (open ? 1 : 0) : 1 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          style={{ display: open || !animate ? 'flex' : 'none' }}
           className="ml-auto px-2.5 py-1 rounded-pill bg-white/72 backdrop-blur-glass border border-white/50 text-accent-negative text-xs font-semibold shadow-glass-sm"
         >
           {badge}
@@ -356,10 +349,9 @@ export const SidebarProject = ({
         )}
       </div>
       <motion.span
-        animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
-          opacity: animate ? (open ? 1 : 0) : 1,
-        }}
+        animate={{ opacity: animate ? (open ? 1 : 0) : 1 }}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
+        style={{ display: open || !animate ? 'inline-block' : 'none' }}
         className={cn(
           "flex-1 text-sm font-medium truncate font-heading tracking-[-0.01em]",
           isActive ? "text-slate-800" : "text-slate-700"
@@ -410,10 +402,9 @@ export const SidebarLogo = () => {
         <img src="/riri-logo.png" alt="Riri AI" className="w-full h-full object-contain p-0.5" />
       </div>
       <motion.div
-        animate={{
-          display: animate ? (open ? "block" : "none") : "block",
-          opacity: animate ? (open ? 1 : 0) : 1,
-        }}
+        animate={{ opacity: animate ? (open ? 1 : 0) : 1 }}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
+        style={{ display: open || !animate ? 'block' : 'none' }}
         className="overflow-hidden leading-none"
       >
         <h1 className="text-[15px] font-semibold text-slate-800 whitespace-nowrap font-heading tracking-[-0.02em]">Riri AI</h1>

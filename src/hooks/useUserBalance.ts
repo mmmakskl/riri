@@ -63,7 +63,10 @@ export function useUserBalance() {
     fetchBalance();
   }, [fetchBalance]);
 
-  const deduct = useCallback(async (amount: number): Promise<boolean> => {
+  const deduct = useCallback(async (
+    amount: number,
+    meta?: { action?: string; section?: string; label?: string }
+  ): Promise<boolean> => {
     if (!user?.id || amount <= 0) return false;
     try {
       // Find the row by user_id or telegram_username
@@ -93,6 +96,21 @@ export function useUserBalance() {
         setLastDeduct(0);
         deductTimeoutRef.current = null;
       }, DEDUCT_ANIMATION_MS);
+
+      // Логируем транзакцию в token_transactions (fire-and-forget)
+      if (meta?.action) {
+        supabase.from('token_transactions').insert({
+          user_id: user.id,
+          tg_username: user.telegram_username || null,
+          amount,
+          action: meta.action,
+          section: meta.section || null,
+          label: meta.label || null,
+        }).then(({ error: logErr }) => {
+          if (logErr) console.warn('token_transactions log:', logErr.message);
+        });
+      }
+
       return true;
     } catch (e) {
       console.error('useUserBalance deduct:', e);

@@ -36,12 +36,14 @@ export function LandingPage() {
     setCode('');
   };
 
-  const switchMethod = (method: 'telegram' | 'email') => {
+  // switchMethod сохранён для возможного включения Email в будущем
+  const _switchMethod = (method: 'telegram' | 'email') => {
     if (method === authMethod) return;
     resetAuth();
     setCode('');
     setAuthMethod(method);
   };
+  void _switchMethod; // предотвращаем unused warning
 
   if (showHero && !showAuth) {
     return (
@@ -141,35 +143,8 @@ export function LandingPage() {
                 </p>
               </div>
 
-              {/* Auth method tabs */}
-              {!codeSent && (
-                <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
-                  <button
-                    onClick={() => switchMethod('telegram')}
-                    className={cn(
-                      "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2",
-                      authMethod === 'telegram'
-                        ? "bg-white text-slate-800 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
-                    )}
-                  >
-                    <Send className="w-4 h-4" />
-                    Telegram
-                  </button>
-                  <button
-                    onClick={() => switchMethod('email')}
-                    className={cn(
-                      "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2",
-                      authMethod === 'email'
-                        ? "bg-white text-slate-800 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
-                    )}
-                  >
-                    <Mail className="w-4 h-4" />
-                    Email
-                  </button>
-                </div>
-              )}
+              {/* Auth method tabs — Email скрыт, только Telegram */}
+              {/* Email метод сохранён в коде, но скрыт для пользователей */}
 
               <div className="space-y-5">
                 {!codeSent ? (

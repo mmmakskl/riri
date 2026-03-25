@@ -467,7 +467,7 @@ export function AIScriptwriter() {
       if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
       setGenLoading(true);
       try {
-        await deduct(cost);
+        await deduct(cost, { action: 'sw_quick', section: 'scriptwriter', label: 'Быстрая генерация' });
         const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'quick-generate', prompt: selectedStyle.prompt, topic: genTopic, structure_analysis: selectedStyle.structureAnalysis, reference_transcript: referenceTranscript || undefined }) });
         const data = await res.json();
         if (data.success && data.script) {
@@ -486,7 +486,7 @@ export function AIScriptwriter() {
     if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
     setGenLoading(true);
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'sw_clarify', section: 'scriptwriter', label: 'Уточнить тему' });
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clarify-topic', prompt: selectedStyle.prompt, topic: genTopic, structure_analysis: selectedStyle.structureAnalysis, reference_transcript: referenceTranscript || undefined }) });
       const data = await res.json();
       if (data.success && data.questions?.length) {
@@ -509,7 +509,7 @@ export function AIScriptwriter() {
     try {
       const cost = getTokenCost('transcribe_video');
       if (!canAfford(cost)) { toast.error('Недостаточно коинов'); setGenLoading(false); return; }
-      await deduct(cost);
+      await deduct(cost, { action: 'transcribe_video', section: 'scriptwriter', label: 'Транскрибировать референс' });
       const res = await fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: referenceUrl }) });
       const data = await res.json();
       const transcript = data.transcript || data.text || '';
@@ -521,7 +521,7 @@ export function AIScriptwriter() {
       // Now clarify
       const clCost = getTokenCost('sw_clarify');
       if (!canAfford(clCost)) { toast.error('Недостаточно коинов'); setGenStep('topic'); setGenLoading(false); return; }
-      await deduct(clCost);
+      await deduct(clCost, { action: 'sw_clarify', section: 'scriptwriter', label: 'Уточнить по референсу' });
       const clRes = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clarify-topic', prompt: selectedStyle.prompt, topic: transcript.slice(0, 500), structure_analysis: selectedStyle.structureAnalysis, reference_transcript: transcript }) });
       const clData = await clRes.json();
       if (clData.success && clData.questions?.length) {
@@ -543,7 +543,7 @@ export function AIScriptwriter() {
     if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
     setGenLoading(true);
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'sw_hooks', section: 'scriptwriter', label: 'Генерировать хуки' });
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generate-hooks', prompt: selectedStyle.prompt, topic: genTopic, answers: genAnswers, structure_analysis: selectedStyle.structureAnalysis, reference_transcript: referenceTranscript || undefined }) });
       const data = await res.json();
       if (data.success && data.hooks?.length) {
@@ -566,7 +566,7 @@ export function AIScriptwriter() {
     addMsg('user', `Что не так: ${feedbackText}`);
     setGenLoading(true);
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'sw_hooks', section: 'scriptwriter', label: 'Регенерировать хуки' });
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generate-hooks', prompt: selectedStyle.prompt, topic: genTopic, answers: genAnswers, structure_analysis: selectedStyle.structureAnalysis, reference_transcript: referenceTranscript || undefined, feedback: feedbackText, previous_hooks: genHooks }) });
       const data = await res.json();
       if (data.success && data.hooks?.length) {
@@ -592,7 +592,7 @@ export function AIScriptwriter() {
     if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
     setGenLoading(true);
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'sw_body', section: 'scriptwriter', label: 'Генерировать тело' });
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generate-body', prompt: selectedStyle.prompt, topic: genTopic, answers: genAnswers, selected_hook: hookText, structure_analysis: selectedStyle.structureAnalysis, reference_transcript: referenceTranscript || undefined }) });
       const data = await res.json();
       if (data.success && data.bodies?.length) {
@@ -616,7 +616,7 @@ export function AIScriptwriter() {
     addMsg('user', `Что не так: ${feedbackText}`);
     setGenLoading(true);
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'sw_body', section: 'scriptwriter', label: 'Регенерировать тело' });
       const hookText = hookTexts[selectedHookIdx] || '';
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generate-body', prompt: selectedStyle.prompt, topic: genTopic, answers: genAnswers, selected_hook: hookText, structure_analysis: selectedStyle.structureAnalysis, reference_transcript: referenceTranscript || undefined, feedback: feedbackText, previous_bodies: genBodies }) });
       const data = await res.json();
@@ -644,7 +644,7 @@ export function AIScriptwriter() {
     if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
     setGenLoading(true);
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'sw_assemble', section: 'scriptwriter', label: 'Собрать сценарий' });
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'assemble-script', prompt: selectedStyle.prompt, topic: genTopic, answers: genAnswers, selected_hook: hookText, selected_body: bodyText, structure_analysis: selectedStyle.structureAnalysis }) });
       const data = await res.json();
       if (data.success && data.script) {
@@ -665,7 +665,7 @@ export function AIScriptwriter() {
     addMsg('user', feedbackText);
     setGenLoading(true);
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'sw_improve', section: 'scriptwriter', label: 'Улучшить сценарий' });
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'improve-script', prompt: selectedStyle.prompt, script_text: genFinalScript, feedback: feedbackText, structure_analysis: selectedStyle.structureAnalysis }) });
       const data = await res.json();
       if (data.success && data.script) {
@@ -685,7 +685,7 @@ export function AIScriptwriter() {
     if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
     setGenLoading(true);
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'refine_prompt', section: 'scriptwriter', label: 'Дообучить подчерк' });
       const parts: string[] = [];
       const hookEdited = hookTexts[selectedHookIdx] !== genHooks[selectedHookIdx]?.text;
       const bodyEdited = bodyTexts[selectedBodyIdx] !== genBodies[selectedBodyIdx]?.text;
@@ -716,7 +716,7 @@ export function AIScriptwriter() {
       const res = await fetch('/api/reel-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, source: 'scriptwriter' }) });
       const data = await res.json();
       if (!data || data.error) { setReelInputs(prev => { const n = [...prev]; n[index] = { ...n[index], loading: false, error: data?.error || 'Ошибка' }; return n; }); return; }
-      await deduct(cost);
+      await deduct(cost, { action: 'sw_validate_reel', section: 'scriptwriter', label: 'Проверить рилс при обучении' });
       const views = data.view_count || 0;
       const ownerUsername = data.owner?.username || data.owner_username || '';
       let vm: number | null = null;
@@ -741,7 +741,7 @@ export function AIScriptwriter() {
             if (!canAfford(tc)) continue;
             const res = await fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: r.url }) });
             const d = await res.json();
-            await deduct(tc);
+            await deduct(tc, { action: 'transcribe_video', section: 'scriptwriter', label: 'Транскрибировать для обучения' });
             setReelInputs(prev => { const n = [...prev]; n[i] = { ...n[i], transcriptLoading: false, transcriptText: d.transcript || d.text || '' }; return n; });
             scripts.push({ transcript_text: d.transcript || d.text || '' });
           } catch { setReelInputs(prev => { const n = [...prev]; n[i] = { ...n[i], transcriptLoading: false }; return n; }); }
@@ -755,7 +755,7 @@ export function AIScriptwriter() {
     const ratio = Math.max(...lengths) / Math.max(Math.min(...lengths), 1);
     if (ratio > 2 && !preferredFormat) { setTrainAnalyzing(false); setTrainScreen('format-select'); return; }
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'train_style', section: 'scriptwriter', label: 'Обучить подчерк' });
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'analyze-structure', scripts, training_mode: trainMode, preferred_format: preferredFormat }) });
       const data = await res.json();
       if (!data.success) { toast.error(data.error || 'Ошибка'); setTrainAnalyzing(false); return; }
@@ -777,7 +777,7 @@ export function AIScriptwriter() {
     setIsRefining(true);
     const allAnswers = Object.entries(clarifyAnswers).map(([i, a]) => `Вопрос: ${clarifyQuestions[Number(i)]}\nОтвет: ${a}`).join('\n\n');
     try {
-      await deduct(cost);
+      await deduct(cost, { action: 'refine_prompt', section: 'scriptwriter', label: 'Дообучить по уточнению' });
       const res = await fetch('/api/scriptwriter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'refine', prompt: draftPrompt, feedback: `Ответы на уточняющие вопросы:\n${allAnswers}`, structure_analysis: draftStructure }) });
       const data = await res.json();
       if (data.success) { await saveStyle(data.prompt || draftPrompt, data.meta || draftMeta, draftStructure); toast.success('Подчерк создан!'); setTrainScreen('list'); }
