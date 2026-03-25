@@ -663,7 +663,7 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
         console.log('[InboxVideos] Copying transcription from global DB');
       }
 
-      if (existingUserVideos.length > 0 && shortcode) {
+      if (existingUserVideos.length > 0 && shortcode && !shouldCreateCopy) {
         console.log('[InboxVideos] Duplicate found, updating existing videos:', existingUserVideos.length);
 
         let updateQuery = supabase
@@ -680,10 +680,7 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
 
         const updateResult = await updateQuery.select();
         error = updateResult.error;
-
-        if (!shouldCreateCopy) {
-          data = updateResult.data?.[0] ?? null;
-        }
+        data = updateResult.data?.[0] ?? null;
       }
 
       if (!existingUserVideos.length || shouldCreateCopy) {

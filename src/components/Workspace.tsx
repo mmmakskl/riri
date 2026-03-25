@@ -8,7 +8,7 @@ import { useActionHistory } from '../hooks/useActionHistory';
 import { useProjectSync } from '../hooks/useProjectSync';
 import { useProjectPresence } from '../hooks/useProjectPresence';
 import { PresenceIndicator } from './ui/PresenceIndicator';
-import { Sparkles, FileText, Trash2, ExternalLink, Plus, Inbox, FolderOpen, Settings, GripVertical, X, Palette, Eye, Heart, ChevronDown, ChevronRight, Undo2, Images, Link2, Loader2, MessageCircle, BookOpen, TrendingUp, PenLine, Check } from 'lucide-react';
+import { Sparkles, FileText, Trash2, ExternalLink, Plus, Inbox, FolderOpen, Settings, GripVertical, X, Palette, Eye, Heart, ChevronDown, ChevronRight, Undo2, Images, Link2, Loader2, MessageCircle, BookOpen, TrendingUp, PenLine, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../utils/cn';
 import { proxyImageUrl } from '../utils/imagePlaceholder';
@@ -18,7 +18,6 @@ import { CarouselDetailPage } from './CarouselDetailPage';
 import { useCarousels, type SavedCarousel } from '../hooks/useCarousels';
 import { useTokenBalance } from '../contexts/TokenBalanceContext';
 import { calculateViralMultiplier, applyViralMultiplierToCoefficient, getProfileStats, calculateCarouselViralMultiplier } from '../services/profileStatsService';
-import { startGlobalTranscription } from '../services/globalVideoService';
 import { dialogScale, dialogSlideUp, backdropFade, iosSpringSoft } from '../utils/motionPresets';
 import { TokenBadge } from './ui/TokenBadge';
 import { GlassFolderIcon } from './ui/GlassFolderIcons';
@@ -134,6 +133,8 @@ interface WorkspaceProps {
 export function Workspace(_props?: WorkspaceProps) {
   const { loading } = useWorkspaceZones();
   const [sortBy, setSortBy] = useState<'viral' | 'views' | 'likes' | 'date' | 'recent' | 'views_from_avg'>('viral');
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [showCarouselSortDropdown, setShowCarouselSortDropdown] = useState(false);
   const [sortFilterMinViral, setSortFilterMinViral] = useState(() => {
     try {
       const v = localStorage.getItem('workspace_sortFilterMinViral');
@@ -202,6 +203,7 @@ export function Workspace(_props?: WorkspaceProps) {
   const { sendChange } = useProjectSync(currentProjectId);
   const { presence, getUsername } = useProjectPresence(currentProjectId);
   const [selectedVideo, setSelectedVideo] = useState<ZoneVideo | null>(null);
+  const [autoTranscribeVideoId, setAutoTranscribeVideoId] = useState<string | null>(null);
   const restoredOpenDetailRef = useRef(false);
   const [moveMenuVideoId, setMoveMenuVideoId] = useState<string | null>(null);
   const [cardMenuVideoId, setCardMenuVideoId] = useState<string | null>(null);
@@ -239,19 +241,8 @@ export function Workspace(_props?: WorkspaceProps) {
   const [manualScript, setManualScript] = useState('');
   const [isAddingManual, setIsAddingManual] = useState(false);
   const [descriptionModalText, setDescriptionModalText] = useState<string | null>(null);
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [showCarouselSortDropdown, setShowCarouselSortDropdown] = useState(false);
-  const [activeTranscribingIds, setActiveTranscribingIds] = useState<Set<string>>(new Set());
   const { carousels, loading: carouselsLoading, addCarousel, refreshCarouselThumbnail, refetch: refetchCarousels } = useCarousels();
   const { canAfford, deduct } = useTokenBalance();
-
-  // Polling при активных фоновых транскрипциях — обновляем статус на карточках
-  useEffect(() => {
-    if (activeTranscribingIds.size === 0) return;
-    const interval = setInterval(() => { refetchInboxVideos(); }, 5000);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTranscribingIds.size]);
 
   // Сортировка каруселей: по виральности, по лайкам, по дате добавления
   const sortedCarousels = useMemo(() => {
@@ -448,28 +439,6 @@ export function Workspace(_props?: WorkspaceProps) {
       console.error('Ошибка перемещения:', err);
       toast.error('Ошибка перемещения');
     }
-  };
-
-  const handleBackgroundTranscribe = async (video: ZoneVideo) => {
-    if (!video.url || isScriptOnlyFeedCard(video)) return;
-    const status = (video as any).transcript_status;
-    if (status === 'completed' || status === 'processing' || status === 'downloading' || status === 'queued') return;
-    const cost = getTokenCost('transcribe_video');
-    if (!canAfford(cost)) {
-      toast.error('Недостаточно коинов для транскрипции');
-      return;
-    }
-    const ok = await deduct(cost, { action: 'transcribe_video', section: 'lenta', label: video.owner_username || undefined });
-    if (!ok) {
-      toast.error('Недостаточно коинов');
-      return;
-    }
-    setActiveTranscribingIds(prev => new Set(prev).add(video.id));
-    toast.success('Транскрипция запущена', { description: 'Текст появится на карточке автоматически' });
-    const shortcode = video.shortcode ?? video.url?.match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/)?.[1] ?? null;
-    startGlobalTranscription(video.id, (video as any).global_video_id, shortcode, video.url).catch(() => {
-      setActiveTranscribingIds(prev => { const s = new Set(prev); s.delete(video.id); return s; });
-    });
   };
 
   const handleDeleteVideo = async (videoId: string) => {
@@ -822,8 +791,9 @@ export function Workspace(_props?: WorkspaceProps) {
       responsibles: (selectedVideo as any).responsibles,
       is_manual: !!(selectedVideo as any).is_manual || isScriptOnlyFeedCard(selectedVideo),
     },
-    onBack: () => setSelectedVideo(null),
+    onBack: () => { setSelectedVideo(null); setAutoTranscribeVideoId(null); },
     onRefreshData: async () => { await refetchInboxVideos(); },
+    autoTranscribe: autoTranscribeVideoId !== null && selectedVideo?.id === autoTranscribeVideoId,
   } : null;
 
   // Обработчик создания папки (рилсы или карусели — в зависимости от вкладки)
@@ -942,82 +912,86 @@ export function Workspace(_props?: WorkspaceProps) {
 
   return (
     <>
-      <AnimatePresence>
-        {selectedCarousel && (
-          <motion.div
-            key="carousel-detail-overlay"
-            className={cn(
-              "fixed inset-0 z-[100] flex overflow-y-auto",
-              "justify-center items-end md:items-center",
-              "p-0 md:p-6"
-            )}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={backdropFade}
-          >
-            <div className="absolute inset-0 bg-black/25 backdrop-blur-glass-2xl" onClick={() => setSelectedCarousel(null)} aria-hidden />
+      {createPortal(
+        <AnimatePresence>
+          {selectedCarousel && (
             <motion.div
+              key="carousel-detail-overlay"
               className={cn(
-                "relative w-full min-h-0 overflow-hidden shadow-float-lg bg-base-alt flex-shrink-0",
-                "max-w-full md:max-w-6xl",
-                "h-[95vh] md:h-[90vh] max-h-[900px]",
-                "rounded-t-[20px] md:rounded-card-2xl",
-                "border-0 md:border border-white/[0.35]",
-                "my-0"
+                "fixed inset-0 z-[20000] flex overflow-y-auto",
+                "justify-center items-end md:items-center",
+                "p-0 md:p-6"
               )}
-              variants={isMobile ? dialogSlideUp : dialogScale}
-              transition={iosSpringSoft}
-              onClick={e => e.stopPropagation()}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={backdropFade}
             >
-              <CarouselDetailPage
-                carousel={selectedCarousel}
-                onBack={() => setSelectedCarousel(null)}
-                onRefreshData={refetchCarousels}
-              />
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-glass-2xl" onClick={() => setSelectedCarousel(null)} aria-hidden />
+              <motion.div
+                className={cn(
+                  "relative w-full min-h-0 overflow-hidden shadow-float-lg bg-base-alt flex-shrink-0",
+                  "max-w-full md:max-w-6xl",
+                  "h-[95vh] md:h-[90vh] max-h-[900px]",
+                  "rounded-t-[20px] md:rounded-card-2xl",
+                  "border-0 md:border border-white/[0.35]",
+                  "my-0"
+                )}
+                variants={isMobile ? dialogSlideUp : dialogScale}
+                transition={iosSpringSoft}
+                onClick={e => e.stopPropagation()}
+              >
+                <CarouselDetailPage
+                  carousel={selectedCarousel}
+                  onBack={() => setSelectedCarousel(null)}
+                  onRefreshData={refetchCarousels}
+                />
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-        {selectedVideo && videoDetailProps && (
-          <motion.div
-            key="video-detail-overlay"
-            className={cn(
-              "fixed inset-0 z-[100] flex overflow-y-auto",
-              "justify-center items-end md:items-center",
-              "p-0 md:p-6"
-            )}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={backdropFade}
-          >
-            <div
-              className="absolute inset-0 bg-black/25 backdrop-blur-glass-2xl"
-              onClick={() => setSelectedVideo(null)}
-              aria-hidden
-            />
+          )}
+          {selectedVideo && videoDetailProps && (
             <motion.div
+              key="video-detail-overlay"
               className={cn(
-                "relative w-full min-h-0 overflow-hidden shadow-float-lg bg-base-alt flex-shrink-0",
-                "max-w-full md:max-w-6xl",
-                "h-[95vh] md:h-[90vh] max-h-[900px]",
-                "rounded-t-[20px] md:rounded-card-2xl",
-                "border-0 md:border border-white/[0.35]",
-                "my-0"
+                "fixed inset-0 z-[20000] flex overflow-y-auto",
+                "justify-center items-end md:items-center",
+                "p-0 md:p-6"
               )}
-              variants={isMobile ? dialogSlideUp : dialogScale}
-              transition={iosSpringSoft}
-              onClick={e => e.stopPropagation()}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={backdropFade}
             >
-              <VideoDetailPage
-                video={videoDetailProps.video}
-                onBack={() => setSelectedVideo(null)}
-                onRefreshData={videoDetailProps.onRefreshData}
+              <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-glass-2xl"
+                onClick={() => setSelectedVideo(null)}
+                aria-hidden
               />
+              <motion.div
+                className={cn(
+                  "relative w-full min-h-0 overflow-hidden shadow-float-lg bg-base-alt flex-shrink-0",
+                  "max-w-full md:max-w-6xl",
+                  "h-[95vh] md:h-[90vh] max-h-[900px]",
+                  "rounded-t-[20px] md:rounded-card-2xl",
+                  "border-0 md:border border-white/[0.35]",
+                  "my-0"
+                )}
+                variants={isMobile ? dialogSlideUp : dialogScale}
+                transition={iosSpringSoft}
+                onClick={e => e.stopPropagation()}
+              >
+                <VideoDetailPage
+                  video={videoDetailProps.video}
+                  onBack={() => { setSelectedVideo(null); setAutoTranscribeVideoId(null); }}
+                  onRefreshData={videoDetailProps.onRefreshData}
+                  autoTranscribe={videoDetailProps.autoTranscribe}
+                />
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
       <div className="h-full min-h-0 overflow-hidden relative flex flex-col">
       {/* Floating Folder Widget - Desktop */}
       <div className={cn(
@@ -1297,36 +1271,44 @@ export function Workspace(_props?: WorkspaceProps) {
         style={{ maxHeight: '100%' }}
       >
         <div className="max-w-6xl mx-auto py-4 md:py-8 pb-28 md:pb-8 safe-top safe-bottom">
-          {/* Tabs: Рилсы | Карусели (в каждом проекте два раздела) */}
-          <div className="flex gap-1.5 p-1.5 mb-4 md:mb-6 rounded-2xl md:rounded-card-xl bg-white/68 backdrop-blur-glass border border-white/55 shadow-glass-sm w-full md:w-fit">
+          {/* Tabs: Рилсы | Карусели */}
+          <div className="flex gap-1 p-1 mb-4 md:mb-6 rounded-2xl bg-white/68 backdrop-blur-glass border border-white/55 shadow-glass-sm w-full md:w-auto md:inline-flex">
             <button
               onClick={() => setContentSection('reels')}
               className={cn(
-                'flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 min-h-[44px] rounded-xl text-sm font-semibold transition-all touch-manipulation',
+                'flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[40px] rounded-xl text-sm font-semibold transition-all touch-manipulation',
                 contentSection === 'reels'
-                  ? 'bg-white/88 text-slate-800 border border-white/60 shadow-glass-sm'
-                  : 'text-slate-600 active:bg-white/50 hover:bg-white/45'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-100'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               )}
             >
-              <Sparkles className="w-4 h-4" strokeWidth={2.5} />
-              Рилсы
-              <span className="tabular-nums text-slate-500">{totalVideos}</span>
+              <Sparkles className="w-4 h-4 flex-shrink-0" strokeWidth={2.5} />
+              <span>Рилсы</span>
+              <span className={cn("tabular-nums text-xs font-medium px-1.5 py-0.5 rounded-md", contentSection === 'reels' ? "bg-slate-100 text-slate-600" : "text-slate-400")}>{totalVideos}</span>
             </button>
             <button
               onClick={() => setContentSection('carousels')}
               className={cn(
-                'flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 min-h-[44px] rounded-xl text-sm font-semibold transition-all touch-manipulation',
+                'flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[40px] rounded-xl text-sm font-semibold transition-all touch-manipulation',
                 contentSection === 'carousels'
-                  ? 'bg-white/88 text-slate-800 border border-white/60 shadow-glass-sm'
-                  : 'text-slate-600 active:bg-white/50 hover:bg-white/45'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-100'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               )}
             >
-              <Images className="w-4 h-4" strokeWidth={2.5} />
-              Карусели
-              <span className="tabular-nums text-slate-500">{carousels.length}</span>
+              <Images className="w-4 h-4 flex-shrink-0" strokeWidth={2.5} />
+              <span>Карусели</span>
+              <span className={cn("tabular-nums text-xs font-medium px-1.5 py-0.5 rounded-md", contentSection === 'carousels' ? "bg-slate-100 text-slate-600" : "text-slate-400")}>{carousels.length}</span>
             </button>
           </div>
 
+          <AnimatePresence mode="sync" initial={false}>
+          <motion.div
+            key={contentSection}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: 'easeInOut' }}
+          >
           {/* Рилсы: текущая лента */}
           {contentSection === 'reels' && (
           <>
@@ -1411,54 +1393,52 @@ export function Workspace(_props?: WorkspaceProps) {
                     <span className="hidden sm:inline">Отменить</span>
                   </button>
                 )}
-                {/* Сортировка — компактный dropdown */}
-                {(() => {
-                  const reelSortOptions = [
-                    { value: 'viral', label: 'Виральность', icon: Sparkles },
-                    { value: 'views', label: 'Просмотры', icon: Eye },
-                    { value: 'views_from_avg', label: 'От среднего', icon: TrendingUp },
-                    { value: 'likes', label: 'Лайки', icon: Heart },
-                    { value: 'recent', label: 'Недавно', icon: Inbox },
-                  ] as const;
-                  const current = reelSortOptions.find(o => o.value === sortBy) ?? reelSortOptions[0];
-                  const CurrentIcon = current.icon;
-                  return (
-                    <div className="relative flex-shrink-0">
-                      <button
-                        onClick={() => setShowSortDropdown(v => !v)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-xl bg-white/68 backdrop-blur-glass border border-white/55 text-slate-700 text-xs font-semibold transition-colors hover:bg-white/84 shadow-glass-sm touch-manipulation"
-                      >
-                        <CurrentIcon className="w-3.5 h-3.5 flex-shrink-0 text-slate-500" strokeWidth={2.5} />
-                        {current.label}
-                        <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", showSortDropdown && "rotate-180")} strokeWidth={2.5} />
-                      </button>
-                      {showSortDropdown && (
-                        <>
-                          <div className="fixed inset-0 z-[40]" onClick={() => setShowSortDropdown(false)} />
-                          <div className="absolute right-0 top-full mt-1.5 z-[41] min-w-[170px] rounded-2xl bg-white/92 backdrop-blur-xl border border-white/60 shadow-glass p-1.5 animate-in fade-in zoom-in-95 duration-150">
-                            {reelSortOptions.map(({ value, label, icon: Icon }) => {
-                              const active = sortBy === value;
-                              return (
-                                <button
-                                  key={value}
-                                  onClick={() => { setSortBy(value as typeof sortBy); setShowSortDropdown(false); }}
-                                  className={cn(
-                                    "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-xl text-sm font-medium text-left transition-colors touch-manipulation",
-                                    active ? "bg-white/88 border border-white/60 shadow-glass-sm text-slate-800" : "hover:bg-white/65 text-slate-700"
-                                  )}
-                                >
-                                  <Icon className="w-4 h-4 flex-shrink-0 text-slate-500" strokeWidth={2.5} />
-                                  <span className="flex-1">{label}</span>
-                                  {active && <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" strokeWidth={2.5} />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })()}
+                {/* Сортировка — дропдаун в нашем стиле */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSortDropdown(v => !v)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 min-h-[36px] rounded-2xl text-sm font-medium transition-all touch-manipulation whitespace-nowrap",
+                      "bg-white/72 backdrop-blur-glass border border-white/55 text-slate-700 hover:bg-white/88 shadow-glass-sm"
+                    )}
+                  >
+                    {sortBy === 'viral' && <><Sparkles className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>Виральность</span></>}
+                    {sortBy === 'views' && <><Eye className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>Просмотры</span></>}
+                    {sortBy === 'views_from_avg' && <><TrendingUp className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>От среднего</span></>}
+                    {sortBy === 'likes' && <><Heart className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>Лайки</span></>}
+                    {sortBy === 'recent' && <><Inbox className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>Недавно</span></>}
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform", showSortDropdown && "rotate-180")} strokeWidth={2.5} />
+                  </button>
+                  {showSortDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-[500]" onClick={() => setShowSortDropdown(false)} />
+                      <div className="absolute right-0 top-full mt-1.5 z-[501] bg-white border border-slate-200/90 rounded-card-xl shadow-xl p-1 min-w-[160px] animate-in fade-in slide-in-from-top-1 duration-150">
+                        {[
+                          { value: 'viral', label: 'Виральность', icon: Sparkles },
+                          { value: 'views', label: 'Просмотры', icon: Eye },
+                          { value: 'views_from_avg', label: 'От среднего', icon: TrendingUp },
+                          { value: 'likes', label: 'Лайки', icon: Heart },
+                          { value: 'recent', label: 'Недавно', icon: Inbox },
+                        ].map(({ value, label, icon: Icon }) => (
+                          <button
+                            key={value}
+                            onClick={() => { setSortBy(value as typeof sortBy); setShowSortDropdown(false); }}
+                            className={cn(
+                              "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors text-left",
+                              sortBy === value
+                                ? "bg-slate-100 text-slate-800 font-semibold"
+                                : "text-slate-600 hover:bg-slate-50"
+                            )}
+                          >
+                            <Icon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
+                            {label}
+                            {sortBy === value && <ChevronDown className="w-3 h-3 ml-auto text-slate-400 rotate-[-90deg]" strokeWidth={2.5} />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             {/* Добавить рилс по ссылке или вручную */}
@@ -1541,6 +1521,7 @@ export function Workspace(_props?: WorkspaceProps) {
                       value={reelAddToFolderId}
                       onChange={setReelAddToFolderId}
                       disabled={isAddingReelByLink}
+                      variant="light"
                     />
                   </div>
                   <button
@@ -1602,6 +1583,8 @@ export function Workspace(_props?: WorkspaceProps) {
                     folderBadge={folderBadge}
                     isManual={isScriptOnlyFeedCard(video)}
                     transcriptStatus={video.transcript_status}
+                    date={(video as any).taken_at ? String((video as any).taken_at) : undefined}
+                    hasScript={!!((video as any).script_text)}
                     onClick={() => setSelectedVideo(video)}
                     showFolderMenu={cardMenuVideoId === video.id}
                     videoId={!String(video.id).startsWith('local-') ? video.id : undefined}
@@ -1616,7 +1599,11 @@ export function Workspace(_props?: WorkspaceProps) {
                       setDescriptionModalText(video.title || 'Нет описания');
                       setCardMenuVideoId(null);
                     }}
-                    onTranscribeClick={!isScriptOnlyFeedCard(video) && video.url ? () => handleBackgroundTranscribe(video) : undefined}
+                    onTranscribeClick={!isScriptOnlyFeedCard(video) && video.url ? () => {
+                      setAutoTranscribeVideoId(video.id);
+                      setSelectedVideo(video);
+                      setCardMenuVideoId(null);
+                    } : undefined}
                     folderMenu={
                       <div className="bg-glass-white/90 backdrop-blur-glass-xl rounded-card-xl shadow-glass border border-white/[0.35] p-1.5 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-200">
                         <button
@@ -1651,21 +1638,21 @@ export function Workspace(_props?: WorkspaceProps) {
                             <span className="text-sm text-slate-700">Переместить</span>
                           </button>
                           
-                          {/* Подменю с папками — скролл при большом количестве */}
+                          {/* Подменю с папками — открывается вниз */}
                           {moveMenuVideoId === video.id && (
-                            <div className="absolute left-full top-0 ml-1 bg-glass-white/90 backdrop-blur-glass-xl rounded-card shadow-glass border border-white/[0.35] p-1.5 min-w-[140px] max-h-[min(50vh,280px)] overflow-y-auto z-[110] animate-in fade-in slide-in-from-left-2 duration-150 custom-scrollbar-light">
+                            <div className="absolute left-0 top-full mt-1 bg-white/95 backdrop-blur-glass-xl rounded-card-xl shadow-glass border border-white/[0.35] p-1 min-w-[160px] max-h-[min(50vh,280px)] overflow-y-auto z-[110] animate-in fade-in slide-in-from-top-1 duration-150 custom-scrollbar-light">
                               {folderConfigs.map(folder => (
                                 <button
                                   key={folder.id}
-                                  onClick={(e) => { 
-                                    e.stopPropagation(); 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     handleMoveToFolder(video, folder.id || 'inbox');
                                     setCardMenuVideoId(null);
                                   }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 transition-colors text-left"
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors text-left"
                                 >
                                   <GlassFolderIcon iconType={folder.iconType} color={folder.color} size={18} simple />
-                                  <span className="text-xs text-slate-600">{folder.title}</span>
+                                  <span className="text-sm text-slate-700">{folder.title}</span>
                                 </button>
                               ))}
                             </div>
@@ -1828,54 +1815,45 @@ export function Workspace(_props?: WorkspaceProps) {
                     </div>
                   </div>
                 </div>
-                {/* Сортировка каруселей */}
+                {/* Сортировка каруселей — дропдаун */}
                 {carousels.length > 0 && (
                   <div className="flex items-center gap-2 mb-4">
-                    {(() => {
-                      const carouselSortOptions = [
-                        { value: 'viral' as const, label: 'Виральность', icon: Sparkles },
-                        { value: 'likes' as const, label: 'Лайки', icon: Heart },
-                        { value: 'recent' as const, label: 'Недавно', icon: Inbox },
-                      ];
-                      const current = carouselSortOptions.find(o => o.value === carouselSortBy) ?? carouselSortOptions[0];
-                      const CurrentIcon = current.icon;
-                      return (
-                        <div className="relative">
-                          <button
-                            onClick={() => setShowCarouselSortDropdown(v => !v)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-xl bg-white/68 backdrop-blur-glass border border-white/55 text-slate-700 text-xs font-semibold transition-colors hover:bg-white/84 shadow-glass-sm touch-manipulation"
-                          >
-                            <CurrentIcon className="w-3.5 h-3.5 flex-shrink-0 text-slate-500" strokeWidth={2.5} />
-                            {current.label}
-                            <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", showCarouselSortDropdown && "rotate-180")} strokeWidth={2.5} />
-                          </button>
-                          {showCarouselSortDropdown && (
-                            <>
-                              <div className="fixed inset-0 z-[40]" onClick={() => setShowCarouselSortDropdown(false)} />
-                              <div className="absolute left-0 top-full mt-1.5 z-[41] min-w-[160px] rounded-2xl bg-white/92 backdrop-blur-xl border border-white/60 shadow-glass p-1.5 animate-in fade-in zoom-in-95 duration-150">
-                                {carouselSortOptions.map(({ value, label, icon: Icon }) => {
-                                  const active = carouselSortBy === value;
-                                  return (
-                                    <button
-                                      key={value}
-                                      onClick={() => { setCarouselSortBy(value); setShowCarouselSortDropdown(false); }}
-                                      className={cn(
-                                        "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-xl text-sm font-medium text-left transition-colors touch-manipulation",
-                                        active ? "bg-white/88 border border-white/60 shadow-glass-sm text-slate-800" : "hover:bg-white/65 text-slate-700"
-                                      )}
-                                    >
-                                      <Icon className="w-4 h-4 flex-shrink-0 text-slate-500" strokeWidth={2.5} />
-                                      <span className="flex-1">{label}</span>
-                                      {active && <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" strokeWidth={2.5} />}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    <span className="text-xs text-slate-500 font-medium">Сортировать по:</span>
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowCarouselSortDropdown(v => !v)}
+                        className="flex items-center gap-2 px-3 py-2 min-h-[36px] rounded-2xl text-sm font-medium transition-all bg-white/72 backdrop-blur-glass border border-white/55 text-slate-700 hover:bg-white/88 shadow-glass-sm"
+                      >
+                        {carouselSortBy === 'viral' && <><Sparkles className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>Виральность</span></>}
+                        {carouselSortBy === 'likes' && <><Heart className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>Лайки</span></>}
+                        {carouselSortBy === 'recent' && <><Inbox className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>Недавно</span></>}
+                        <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform", showCarouselSortDropdown && "rotate-180")} strokeWidth={2.5} />
+                      </button>
+                      {showCarouselSortDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-[500]" onClick={() => setShowCarouselSortDropdown(false)} />
+                          <div className="absolute left-0 top-full mt-1.5 z-[501] bg-white border border-slate-200/90 rounded-card-xl shadow-xl p-1 min-w-[160px] animate-in fade-in slide-in-from-top-1 duration-150">
+                            {[
+                              { value: 'viral' as const, label: 'Виральность', icon: Sparkles },
+                              { value: 'likes' as const, label: 'Лайки', icon: Heart },
+                              { value: 'recent' as const, label: 'Недавно', icon: Inbox },
+                            ].map(({ value, label, icon: Icon }) => (
+                              <button
+                                key={value}
+                                onClick={() => { setCarouselSortBy(value); setShowCarouselSortDropdown(false); }}
+                                className={cn(
+                                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors text-left",
+                                  carouselSortBy === value ? "bg-slate-100 text-slate-800 font-semibold" : "text-slate-600 hover:bg-slate-50"
+                                )}
+                              >
+                                <Icon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
                 {carouselsLoading ? (
@@ -1902,114 +1880,135 @@ export function Workspace(_props?: WorkspaceProps) {
                   </div>
                 ) : (
                   <div key={carouselsGridKey} className="grid grid-cols-3 gap-3 md:gap-4 pb-20 md:pb-6">
-                    {carouselsForFeed.map(c => (
-                      <div
-                        key={c.id}
-                        className="group rounded-2xl overflow-hidden bg-white/86 border border-white/65 shadow-[0_10px_26px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.65)] hover:shadow-[0_16px_36px_rgba(15,23,42,0.12)] transition-all relative"
-                      >
-                        <button
-                          onClick={() => setSelectedCarousel(c)}
-                          className="w-full text-left"
+                    {carouselsForFeed.map(c => {
+                      const cViralCoef = calculateCarouselViralCoefficient(c.like_count, c.taken_at);
+                      const cProfileStats = c.owner_username ? profileStatsCache.get(c.owner_username.toLowerCase()) : null;
+                      const cViralMult = calculateCarouselViralMultiplier(c.like_count, cProfileStats ?? null);
+                      const cFolderName = !selectedCarouselFolderId
+                        ? (c.folder_id ? (carouselFolderConfigs.find(f => f.id === c.folder_id)?.title || 'Папка') : 'Без папки')
+                        : null;
+                      const cFolderColor = c.folder_id
+                        ? (carouselFolderConfigs.find(f => f.id === c.folder_id)?.color || '#94a3b8')
+                        : '#94a3b8';
+                      const cDateStr = formatCarouselDate(c.taken_at);
+                      return (
+                        <div
+                          key={c.id}
+                          className="group rounded-2xl overflow-hidden bg-white/86 border border-white/65 shadow-[0_10px_26px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.65)] hover:shadow-[0_16px_36px_rgba(15,23,42,0.12)] transition-all relative"
                         >
-                          <div className="aspect-[3/4] min-h-[140px] relative bg-slate-100 overflow-hidden">
-                            <img
-                              src={proxyImageUrl(c.thumbnail_url || c.slide_urls?.[0] || undefined)}
-                              alt=""
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              onError={() => {
-                                if (c.shortcode && refreshCarouselThumbnail) {
-                                  refreshCarouselThumbnail(c.id, c.shortcode);
-                                }
-                              }}
-                            />
-                            <div
-                              className="absolute inset-0 pointer-events-none z-[1]"
-                              style={{
-                                background: 'linear-gradient(to top, rgba(10,12,18,0.9) 0%, rgba(22,26,36,0.58) 30%, rgba(30,34,42,0.2) 56%, rgba(255,255,255,0.04) 100%)',
-                              }}
-                            />
-                            <div className="absolute inset-x-0 top-0 h-20 pointer-events-none z-[1] bg-gradient-to-b from-black/18 via-black/5 to-transparent" />
-                            <div className="absolute bottom-1.5 right-1.5 z-[2] px-1.5 py-0.5 rounded-lg backdrop-blur-[20px] bg-black/34 border border-white/25 text-white text-[10px] font-medium flex items-center gap-0.5 shadow-[0_4px_14px_rgba(0,0,0,0.18)]">
-                              <Images className="w-2.5 h-2.5" />
-                              {c.slide_count || 0}
-                            </div>
-                            {c.transcript_status === 'completed' && (
-                              <div className="absolute top-1.5 left-1.5 z-[2] px-1.5 py-0.5 rounded-lg bg-emerald-500/90 text-white text-[10px] font-medium backdrop-blur-sm border border-white/20">
-                                Транскрипт
+                          <button onClick={() => setSelectedCarousel(c)} className="w-full text-left">
+                            <div className="aspect-[3/4] min-h-[140px] relative bg-slate-100 overflow-hidden">
+                              <img
+                                src={proxyImageUrl(c.thumbnail_url || c.slide_urls?.[0] || undefined)}
+                                alt=""
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                onError={() => { if (c.shortcode && refreshCarouselThumbnail) refreshCarouselThumbnail(c.id, c.shortcode); }}
+                              />
+                              {/* Градиент */}
+                              <div className="absolute inset-0 pointer-events-none z-[1]" style={{ background: 'linear-gradient(to top, rgba(10,12,18,0.9) 0%, rgba(22,26,36,0.58) 30%, rgba(30,34,42,0.2) 56%, rgba(255,255,255,0.04) 100%)' }} />
+                              <div className="absolute inset-x-0 top-0 h-20 pointer-events-none z-[1] bg-gradient-to-b from-black/18 via-black/5 to-transparent" />
+
+                              {/* TOP — viral badges слева, описание справа */}
+                              <div className="absolute top-1.5 left-1.5 right-1.5 z-[2] flex items-start justify-between gap-1">
+                                <div className="flex flex-col gap-0.5">
+                                  {cViralCoef > 0 && (
+                                    <span className={cn(
+                                      'px-1.5 py-0.5 rounded-pill flex items-center gap-0.5 border border-white/20',
+                                      cViralCoef > 10 ? 'bg-accent-positive text-white' : cViralCoef > 5 ? 'bg-amber-500 text-white' : cViralCoef > 0 ? 'bg-white/90 text-slate-700' : 'bg-black/50 text-white/90'
+                                    )}>
+                                      <Sparkles className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2} />
+                                      <span className="text-[9px] font-semibold tabular-nums">{Math.round(cViralCoef)}</span>
+                                    </span>
+                                  )}
+                                  {cViralMult !== null && cViralMult !== undefined && (
+                                    <span className={cn(
+                                      'px-1.5 py-0.5 rounded-pill flex items-center gap-0.5 border border-white/20',
+                                      cViralMult >= 10 ? 'bg-accent-negative text-white' : cViralMult >= 5 ? 'bg-amber-400/80 text-slate-800' : cViralMult >= 3 ? 'bg-accent-positive/80 text-white' : cViralMult >= 2 ? 'bg-accent-positive/70 text-white' : cViralMult >= 1.5 ? 'bg-accent-positive/60 text-white' : 'bg-slate-500/80 text-white'
+                                    )} title={`В ${Math.round(cViralMult)}x раз ${cViralMult >= 1 ? 'больше' : 'меньше'} среднего по лайкам у автора`}>
+                                      <TrendingUp className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2} />
+                                      <span className="text-[9px] font-semibold tabular-nums">{Math.round(cViralMult)}x</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); setDescriptionModalText(c.caption ?? 'Нет описания'); }}
+                                  className="p-1.5 rounded-full backdrop-blur-[20px] bg-black/34 hover:bg-black/52 border border-white/25 text-white transition-colors touch-manipulation"
+                                  title="Описание поста"
+                                >
+                                  <BookOpen className="w-3.5 h-3.5" strokeWidth={2} />
+                                </button>
                               </div>
-                            )}
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                setDescriptionModalText(c.caption ?? 'Нет описания');
-                              }}
-                              className="absolute top-1.5 right-1.5 z-[2] p-2 rounded-full backdrop-blur-[20px] bg-black/34 hover:bg-black/52 border border-white/25 text-white transition-colors touch-manipulation shadow-[0_4px_14px_rgba(0,0,0,0.18)]"
-                              title="Описание поста"
-                            >
-                              <BookOpen className="w-4 h-4" strokeWidth={2} />
-                            </button>
-                            <div className="absolute bottom-0 left-0 right-0 z-[2] p-2.5 pt-8 flex flex-col gap-1.5">
-                              {c.caption && (
-                                <p className="text-white/95 text-[10px] leading-snug line-clamp-2 break-words overflow-hidden drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]">
-                                  {c.caption}
-                                </p>
-                              )}
-                              {formatCarouselDate(c.taken_at) && (
-                                <p className="text-white/70 text-[9px] font-medium">
-                                  {formatCarouselDate(c.taken_at)}
-                                </p>
-                              )}
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="px-2 py-1 rounded-pill backdrop-blur-[20px] backdrop-saturate-[180%] flex items-center gap-1 border border-white/35 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.28)] bg-white/20 text-white">
-                                  <Heart className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2} />
-                                  <span className="text-[10px] font-semibold tabular-nums">{formatNumber(c.like_count)}</span>
+
+                              {/* Счётчик слайдов */}
+                              <div className="absolute bottom-1.5 right-1.5 z-[2] px-1.5 py-0.5 rounded-lg backdrop-blur-[20px] bg-black/34 border border-white/25 text-white text-[10px] font-medium flex items-center gap-0.5 shadow-[0_4px_14px_rgba(0,0,0,0.18)]">
+                                <Images className="w-2.5 h-2.5" />
+                                {c.slide_count || 0}
+                              </div>
+
+                              {/* BOTTOM content */}
+                              <div className="absolute bottom-0 left-0 right-0 z-[2] p-2 pt-6 flex flex-col gap-1">
+                                {/* Username */}
+                                <span className="px-1.5 py-0.5 rounded-pill flex items-center gap-1 border border-white/35 bg-black/36 shadow-[0_4px_14px_rgba(0,0,0,0.16)] inline-flex max-w-full self-start">
+                                  <span className="text-[9px] font-semibold text-white/90 truncate max-w-[90px]">@{c.owner_username || 'instagram'}</span>
                                 </span>
-                                <span className="px-2 py-1 rounded-pill backdrop-blur-[20px] backdrop-saturate-[180%] flex items-center gap-1 border border-white/35 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.28)] bg-white/20 text-white">
-                                  <MessageCircle className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2} />
-                                  <span className="text-[10px] font-semibold tabular-nums">{formatNumber(c.comment_count)}</span>
-                                </span>
-                                {(() => {
-                                  const viralCoef = calculateCarouselViralCoefficient(c.like_count, c.taken_at);
-                                  const profileStats = c.owner_username ? profileStatsCache.get(c.owner_username.toLowerCase()) : null;
-                                  const viralMult = calculateCarouselViralMultiplier(c.like_count, profileStats ?? null);
-                                  return (
-                                    <>
-                                      {viralCoef > 0 && (
-                                        <span className="px-2 py-1 rounded-pill backdrop-blur-[20px] backdrop-saturate-[180%] flex items-center gap-1 border border-white/35 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.28)] bg-white/20 text-white" title="Виральность (лайки/день)">
-                                          <Sparkles className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2} />
-                                          <span className="text-[10px] font-semibold tabular-nums">{viralCoef.toFixed(1)}</span>
-                                        </span>
-                                      )}
-                                      {viralMult !== null && viralMult !== undefined && (
-                                        <span
-                                          className={cn(
-                                            'px-2 py-1 rounded-pill backdrop-blur-[20px] backdrop-saturate-[180%] flex items-center gap-1 border border-white/35 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.28)] text-white',
-                                            viralMult >= 5 ? 'bg-amber-500/85' : viralMult >= 3 ? 'bg-emerald-500/82' : viralMult >= 2 ? 'bg-white/30' : 'bg-white/20'
-                                          )}
-                                          title={`В ${Math.round(viralMult)}x раз ${viralMult >= 1 ? 'больше' : 'меньше'} минимума по лайкам у автора`}
-                                        >
-                                          <TrendingUp className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2} />
-                                          <span className="text-[10px] font-semibold tabular-nums">{Math.round(viralMult)}x</span>
-                                        </span>
-                                      )}
-                                    </>
-                                  );
-                                })()}
+
+                                {/* Stats: лайки, комменты, дата */}
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {c.like_count !== undefined && (
+                                    <span className="px-1.5 py-0.5 rounded-pill backdrop-blur-[20px] backdrop-saturate-[180%] flex items-center gap-0.5 border border-white/35 bg-black/36 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.18)] text-white">
+                                      <Heart className="w-2 h-2 flex-shrink-0" strokeWidth={2} />
+                                      <span className="text-[9px] font-semibold tabular-nums">{formatNumber(c.like_count)}</span>
+                                    </span>
+                                  )}
+                                  {c.comment_count !== undefined && (
+                                    <span className="px-1.5 py-0.5 rounded-pill backdrop-blur-[20px] backdrop-saturate-[180%] flex items-center gap-0.5 border border-white/35 bg-black/36 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.18)] text-white">
+                                      <MessageCircle className="w-2 h-2 flex-shrink-0" strokeWidth={2} />
+                                      <span className="text-[9px] font-semibold tabular-nums">{formatNumber(c.comment_count)}</span>
+                                    </span>
+                                  )}
+                                  {cDateStr && (
+                                    <span className="px-1.5 py-0.5 rounded-pill backdrop-blur-[20px] backdrop-saturate-[180%] flex items-center gap-0.5 border border-white/35 bg-black/36 shadow-[0_4px_14px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.18)] text-white">
+                                      <Calendar className="w-2 h-2 flex-shrink-0" strokeWidth={2} />
+                                      <span className="text-[9px] font-semibold whitespace-nowrap">{cDateStr}</span>
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Папка + сценарий */}
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {cFolderName && (
+                                    <span
+                                      className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold"
+                                      style={{ backgroundColor: cFolderColor + '30', color: 'white', border: `1px solid ${cFolderColor}50` }}
+                                    >
+                                      {cFolderName}
+                                    </span>
+                                  )}
+                                  <span className={cn(
+                                    'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold',
+                                    c.script_text ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-500/35' : 'bg-white/10 text-white/55 border border-white/20'
+                                  )}>
+                                    <PenLine className="w-2 h-2 flex-shrink-0" strokeWidth={2.5} />
+                                    {c.script_text ? 'Сценарий ✓' : 'Без сценария'}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </button>
-                      </div>
-                    ))}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </>
           )}
+          </motion.div>
+          </AnimatePresence>
         </div>
       </div>
-      
+
       {/* Folder Settings Modal */}
       <AnimatePresence>
       {showFolderSettings && (
