@@ -2461,7 +2461,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
       {/* Description Modal — портал в body, высокий z-index, непрозрачный фон */}
       {showDescriptionModal && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-[30000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setShowDescriptionModal(false)}
           role="dialog"
           aria-modal="true"
