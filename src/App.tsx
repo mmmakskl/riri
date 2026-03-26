@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Workspace } from './components/Workspace';
 import { LandingPage } from './components/LandingPage';
-import { Dashboard, getDisplayName } from './components/Dashboard';
+import { getDisplayName } from './components/Dashboard';
+import { RiriChatPage } from './components/RiriChatPage';
 import { OnboardingModal } from './components/OnboardingModal';
 import { History } from './components/History';
 import { AIScriptwriter } from './components/AIScriptwriter';
@@ -10,7 +11,6 @@ import { ProfilePage } from './components/ProfilePage';
 import { Analytics } from './components/Analytics';
 import { UsageStats } from './components/UsageStats';
 import { CarouselEditor } from './components/carousel-editor/CarouselEditor';
-import { RiriChat } from './components/RiriChat';
 import { IncomingVideosDrawer } from './components/sidebar/IncomingVideosDrawer';
 import { SearchPanel, HIDE_SEARCH_BY_WORD } from './components/ui/SearchPanel';
 import { ProjectMembersModal } from './components/ui/ProjectMembersModal';
@@ -402,7 +402,7 @@ function AppContent() {
     return () => mq.removeEventListener('change', handler);
   }, []);
   const mobileTabs = [
-    { id: 'dashboard' as MobileTabId, icon: Home, label: 'Главная', iconColor: 'text-slate-500' },
+    { id: 'dashboard' as MobileTabId, icon: Sparkles, label: 'RiRi', iconColor: 'text-slate-500' },
     { id: 'workspace' as MobileTabId, icon: LayoutGrid, label: 'Лента', iconColor: 'text-slate-500' },
     { id: 'profile' as MobileTabId, icon: User, label: 'Профиль', iconColor: 'text-slate-500' },
     { id: 'menu' as MobileTabId, icon: Menu, label: 'Меню', iconColor: 'text-slate-500' },
@@ -632,8 +632,8 @@ function AppContent() {
             <SidebarSection title="С чем тебе помочь?">
               <div className="space-y-0.5">
                 <SidebarLink
-                  icon={<Home className="w-4 h-4" strokeWidth={2.5} />}
-                  label="Рабочий стол"
+                  icon={<Sparkles className="w-4 h-4" strokeWidth={2.5} />}
+                  label="RiRi"
                   onClick={() => setViewMode('dashboard')}
                   isActive={viewMode === 'dashboard'}
                 />
@@ -805,15 +805,7 @@ function AppContent() {
             transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
             style={{ willChange: 'opacity, transform' }}
           >
-            {viewMode === 'dashboard' && (
-              <Dashboard
-                onOpenSearch={(tab) => { setSearchTab(tab); setIsSearchOpen(true); }}
-                onOpenFeed={() => setViewMode('workspace')}
-                onOpenTeam={() => setIsMembersModalOpen(true)}
-                videosCount={videos.length}
-                telegramUsername={user?.telegram_username}
-              />
-            )}
+            {viewMode === 'dashboard' && <RiriChatPage />}
             {viewMode === 'workspace' && <Workspace />}
             {viewMode === 'scriptwriter' && <AIScriptwriter />}
             {viewMode === 'analytics' && <Analytics />}
@@ -895,8 +887,6 @@ function AppContent() {
         }}
       />
 
-      {/* RiRi AI Assistant */}
-      <RiriChat />
     </div>
   );
 }
