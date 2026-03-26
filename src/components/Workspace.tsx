@@ -1313,7 +1313,7 @@ export function Workspace(_props?: WorkspaceProps) {
           {contentSection === 'reels' && (
           <>
           {/* Header — glass bar, на мобильных кнопка папок справа */}
-          <div className="mb-6 md:mb-8 rounded-2xl md:rounded-card-xl bg-white/72 backdrop-blur-glass-xl shadow-glass border border-white/55 px-4 py-4 md:px-6 md:py-5">
+          <div className="mb-6 md:mb-8 rounded-2xl md:rounded-card-xl bg-white/72 backdrop-blur-glass-xl shadow-glass border border-white/55 px-4 py-4 md:px-6 md:py-5 relative z-20">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-5">
               <div className="flex items-center justify-between md:justify-start gap-3 flex-shrink-0 min-w-0">
                 <div className="flex items-center gap-3 min-w-0">
@@ -1398,8 +1398,10 @@ export function Workspace(_props?: WorkspaceProps) {
                   <button
                     onClick={() => setShowSortDropdown(v => !v)}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 min-h-[36px] rounded-2xl text-sm font-medium transition-all touch-manipulation whitespace-nowrap",
-                      "bg-white/72 backdrop-blur-glass border border-white/55 text-slate-700 hover:bg-white/88 shadow-glass-sm"
+                      "flex items-center gap-2 px-3 py-2 min-h-[36px] rounded-2xl text-sm font-medium transition-all touch-manipulation whitespace-nowrap focus:outline-none",
+                      showSortDropdown
+                        ? "bg-white border border-slate-200 text-slate-800 shadow-glass-sm"
+                        : "bg-white/72 backdrop-blur-glass border border-white/55 text-slate-700 hover:bg-white/88 shadow-glass-sm"
                     )}
                   >
                     {sortBy === 'viral' && <><Sparkles className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.5} /><span>Виральность</span></>}
