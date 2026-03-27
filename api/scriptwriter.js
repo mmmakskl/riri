@@ -1033,96 +1033,41 @@ async function handleAnalyzeCarousel(req, res) {
     return res.status(502).json({ error: lastErr?.message ?? 'Vision API error' });
   }
 
-  // ── Шаг 2: если фон — фото/текстура, генерируем новое изображение ──────────
+  // ── Шаг 2: если фон — фото/текстура, генерируем через Gemini Image Generation ──
   if (parsed.background?.type === 'image') {
-    // 2a. Gemini описывает фон для генерации
-    let bgGenPrompt = null;
-    const descPrompt = `Look at this carousel image. Ignore ALL text, logos, icons, UI elements, and people in the foreground. Focus ONLY on the background layer.
-
-Write a concise image generation prompt (2-4 sentences, English) describing ONLY the background: colors, textures, lighting, style, atmosphere, patterns. Do NOT mention any text, overlays, or people. Just the raw background visual.
-
-Reply with only the prompt text, no explanations.`;
-
-    for (const model of VISION_MODELS) {
-      try {
-        const { text: descText } = await callOpenRouter({
-          apiKey: OPENROUTER_API_KEY,
-          model,
+    try {
+      // google/gemini-2.5-flash-image через стандартный chat completions + modalities
+      const genRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://ririrai.vercel.app',
+          'X-Title': 'RiRi AI',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash-image',
+          modalities: ['image', 'text'],
+          image_config: { aspect_ratio: '3:4' },
           messages: [{
             role: 'user',
             content: [
-              // Прикрепляем оригинальное фото — Gemini видит его и описывает фон точнее
               { type: 'image_url', image_url: { url: `data:${mime_type};base64,${image_data}` } },
-              { type: 'text', text: descPrompt },
+              { type: 'text', text: 'Recreate ONLY the background of this carousel slide — the exact same texture, colors, grain, lighting, patterns, and atmosphere — without ANY text, icons, logos, people, or UI elements. Output a clean background image only.' },
             ],
           }],
-          temperature: 0.2,
-          max_tokens: 250,
-        });
-        if (descText?.trim()) { bgGenPrompt = descText.trim(); break; }
-      } catch (err) {
-        console.error(`analyze-carousel step2a error with ${model}:`, err.message);
+        }),
+      });
+
+      const genData = await genRes.json();
+      console.log('Gemini image gen status:', genRes.status, JSON.stringify(genData).slice(0, 300));
+
+      const imgItem = genData?.choices?.[0]?.message?.images?.[0];
+      if (imgItem?.image_url?.url) {
+        parsed.background = { type: 'image', src: imgItem.image_url.url };
       }
-    }
-
-    // 2b. Генерируем фоновое изображение через OpenRouter FLUX
-    if (bgGenPrompt) {
-      const finalPrompt = bgGenPrompt + ', no text, no watermarks, no people, no UI, background texture only, high quality, seamless';
-      // Пробуем модели по очереди
-      // DALL-E через OpenRouter — стандартный OpenAI-совместимый формат, надёжнее FLUX
-      const IMAGE_MODELS = [
-        { model: 'openai/dall-e-2', size: '1024x1024' },
-        { model: 'openai/dall-e-3', size: '1024x1024' },
-      ];
-
-      let imageGenDone = false;
-      for (const { model: imgModel, size } of IMAGE_MODELS) {
-        if (imageGenDone) break;
-        try {
-          const genRes = await fetch('https://openrouter.ai/api/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://ririrai.vercel.app',
-              'X-Title': 'RiRi AI Carousel',
-            },
-            body: JSON.stringify({
-              model: imgModel,
-              prompt: finalPrompt,
-              n: 1,
-              size,
-              response_format: 'b64_json',
-            }),
-          });
-
-          const genData = await genRes.json();
-          console.log(`OpenRouter image gen [${imgModel}] status:`, genRes.status, JSON.stringify(genData).slice(0, 200));
-
-          if (!genRes.ok) continue;
-
-          const item = genData?.data?.[0];
-          if (item?.b64_json) {
-            parsed.background = { type: 'image', src: `data:image/png;base64,${item.b64_json}` };
-            imageGenDone = true;
-          } else if (item?.url) {
-            const imgRes = await fetch(item.url);
-            if (imgRes.ok) {
-              const buf = await imgRes.arrayBuffer();
-              const b64 = Buffer.from(buf).toString('base64');
-              const ct = imgRes.headers.get('content-type') || 'image/png';
-              parsed.background = { type: 'image', src: `data:${ct};base64,${b64}` };
-              imageGenDone = true;
-            }
-          }
-        } catch (err) {
-          console.error(`OpenRouter image gen error [${imgModel}]:`, err.message);
-        }
-      }
-
-      if (!imageGenDone) {
-        console.warn('All image gen models failed — frontend will use screenshot as fallback');
-      }
+    } catch (err) {
+      console.error('Gemini image gen error:', err.message);
     }
   }
 
