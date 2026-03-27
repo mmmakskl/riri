@@ -1056,12 +1056,14 @@ async function handleAnalyzeCarousel(req, res) {
       headers: {
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://riri.app',
+        'Referer': 'https://openrouter.ai/chat',
+        'HTTP-Referer': 'https://openrouter.ai/chat',
         'X-Title': 'RiRi',
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0.1 Safari/605.1.15',
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-image',
+        modalities: ['image', 'text'],
         stream: true,
         messages: [{
           role: 'user',
