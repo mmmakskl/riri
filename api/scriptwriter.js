@@ -1084,18 +1084,19 @@ CRITICAL: Do NOT mention text, words, typography, people, UI, or any objects. On
           image_config: { aspect_ratio: '3:4' },
           messages: [{
             role: 'user',
-            content: `Reproduce the exact background texture/surface from this description: ${bgPrompt}
+            content: `Reproduce this background as closely as possible (~identical): ${bgPrompt}
 
-Your goal: create an image that looks almost identical (~same) to the original background — same colors, same grain, same material feel.
+Your goal: recreate the full visual — if there is a person/photo/scene in the background, keep it. Reproduce colors, lighting, composition, and mood as accurately as you can.
 
-ABSOLUTE RULES (each violation ruins the result):
-- NO text, letters, words, numbers, or any symbols anywhere
-- NO people, faces, human bodies, or body parts
-- NO photos of people or portraits
-- NO UI elements, buttons, icons, frames, or overlays
-- NO objects in the foreground — only the raw background surface
-- Fill 100% of the image with the background texture/material only
-- Imagine you are photographing a blank sheet of the same material with nothing on it`,
+REMOVE ONLY these elements (they were overlaid on top and don't belong to the background):
+- All text, letters, words, numbers, captions, titles
+- All UI elements: buttons, icons, toggles, frames, overlays, borders
+- All graphic decorations that look like designed elements
+
+KEEP everything that is part of the actual photo/scene:
+- People, faces, bodies — if they are part of the background scene
+- Real-world objects, environments, textures, scenery
+- The original composition and visual style`,
           }],
         }),
       });
