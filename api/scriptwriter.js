@@ -1050,7 +1050,7 @@ async function handleAnalyzeCarousel(req, res) {
           role: 'user',
           content: [
             { type: 'image_url', image_url: { url: `data:${mime_type};base64,${image_data}` } },
-            { type: 'text', text: 'Edit this image: erase ALL text, words, letters, numbers, captions, watermarks, and UI elements (buttons, icons, frames, overlays, logos). Keep EVERYTHING else completely unchanged — same background, same colors, same textures, same people, same objects, same lighting, same composition. Output only the cleaned image with text and UI removed, nothing else changed.' },
+            { type: 'text', text: 'I attached a photo. Delete from it all text, photo blocks, dots, icons, buttons, UI elements, watermarks — everything except the background.\n\nKeep the background exactly as-is. Preserve the exact color, texture, palette, grain, lighting — pixel-perfect identical.\n\nIf the background is a photo of a person or scene — recreate that exact photo.\n\nOutput the image in 3:4 aspect ratio (portrait). Return only the cleaned background image, nothing else.' },
           ],
         }],
       }),

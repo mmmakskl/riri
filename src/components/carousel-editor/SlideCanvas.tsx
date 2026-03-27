@@ -533,6 +533,8 @@ export const SlideCanvas = forwardRef<HTMLDivElement, SlideCanvasProps>(
       bgStyle.backgroundImage = `url(${slide.background.src})`;
       bgStyle.backgroundSize = 'cover';
       bgStyle.backgroundPosition = 'center';
+      const br = slide.background.brightness ?? 1;
+      if (br !== 1) bgStyle.filter = `brightness(${br})`;
     }
 
     return (

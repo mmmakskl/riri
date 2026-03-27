@@ -5,12 +5,13 @@ import {
   ChevronLeft, ChevronRight, Download, Plus, Trash2,
   ArrowLeft, PenLine, LayoutTemplate, Type, Image as ImageIcon,
   Bold, Italic, AlignLeft, AlignCenter, AlignRight,
-  Loader2, Camera, Sparkles, Box,
+  Loader2, Camera, Sparkles, Box, Copy, Minus, Circle as CircleIcon,
+  Square, RefreshCw,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { SlideCanvas } from './SlideCanvas';
 import { SlidePreview } from './SlidePreview';
-import type { Slide, SlideElement, SlideBackground, TextElement, ImageElement } from './types';
+import type { Slide, SlideElement, SlideBackground, TextElement, ImageElement, ShapeElement } from './types';
 import {
   createDefaultSlide, createDefaultTextElement, createDefaultImageElement,
   createDefaultShapeElement, createDefaultPlaceholderElement,
@@ -454,6 +455,23 @@ function FreeEditor({ onBack, initialSlides }: { onBack: () => void; initialSlid
     setSelectedId(null);
   }, [slides.length, slide.background]);
 
+  const copySlide = useCallback((idx: number) => {
+    if (slides.length >= 10) return;
+    const source = slides[idx];
+    const clone: Slide = {
+      ...createDefaultSlide(),
+      background: JSON.parse(JSON.stringify(source.background)),
+      elements: JSON.parse(JSON.stringify(source.elements)),
+    };
+    setSlides((prev) => {
+      const next = [...prev];
+      next.splice(idx + 1, 0, clone);
+      return next;
+    });
+    setCurrentIdx(idx + 1);
+    setSelectedId(null);
+  }, [slides]);
+
   const removeSlide = useCallback((idx: number) => {
     if (slides.length <= 1) return;
     setSlides((prev) => prev.filter((_, i) => i !== idx));
@@ -627,6 +645,13 @@ function FreeEditor({ onBack, initialSlides }: { onBack: () => void; initialSlid
                   <span className="text-[10px] font-bold text-white/60 drop-shadow">{i + 1}</span>
                 </div>
               </button>
+              <button
+                onClick={() => copySlide(i)}
+                className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-600 text-white hidden group-hover:flex items-center justify-center"
+                title="Копировать слайд"
+              >
+                <Copy size={8} />
+              </button>
               {slides.length > 1 && (
                 <button
                   onClick={() => removeSlide(i)}
@@ -704,8 +729,9 @@ function FreeEditor({ onBack, initialSlides }: { onBack: () => void; initialSlid
                   className="px-4 py-2.5 rounded-2xl text-center"
                   style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)' }}
                 >
-                  <p className="text-[13px] text-white/80">Нажми кнопки ниже</p>
-                  <p className="text-[11px] text-white/50">чтобы добавить текст или фото</p>
+                  <p className="text-[13px] text-white/80 hidden lg:block">Нажми кнопки справа</p>
+                  <p className="text-[13px] text-white/80 lg:hidden">Нажми кнопки ниже</p>
+                  <p className="text-[11px] text-white/50">чтобы добавить текст, фото или фигуру</p>
                 </div>
               </div>
             )}
@@ -938,14 +964,48 @@ function PropertiesPanel({
             ))}
           </div>
 
+          {/* Current bg image preview + replace + brightness */}
+          {slide.background.type === 'image' && slide.background.src && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-10 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0"
+                  style={{ aspectRatio: '3/4', backgroundImage: `url(${slide.background.src})`, backgroundSize: 'cover', filter: `brightness(${slide.background.brightness ?? 1})` }}
+                />
+                <button
+                  onClick={onBgImage}
+                  className="flex items-center gap-1 text-[12px] text-slate-500 hover:text-slate-700 transition-colors touch-manipulation"
+                >
+                  <RefreshCw size={11} />
+                  Заменить фото
+                </button>
+              </div>
+              {/* Brightness slider */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-[#1a1a18]/40 uppercase tracking-wider">Яркость</span>
+                  <span className="text-[11px] text-slate-400">{Math.round((slide.background.brightness ?? 1) * 100)}%</span>
+                </div>
+                <input
+                  type="range" min="0.2" max="2" step="0.05"
+                  value={slide.background.brightness ?? 1}
+                  onChange={(e) => onUpdateBackground({ ...slide.background, brightness: parseFloat(e.target.value) } as import('./types').ImageBackground)}
+                  className="w-full accent-slate-600"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Upload bg image */}
-          <button
-            onClick={onBgImage}
-            className="flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-700 transition-colors touch-manipulation"
-          >
-            <ImageIcon size={12} />
-            Загрузить фоновое фото
-          </button>
+          {slide.background.type !== 'image' && (
+            <button
+              onClick={onBgImage}
+              className="flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-700 transition-colors touch-manipulation"
+            >
+              <ImageIcon size={12} />
+              Загрузить фоновое фото
+            </button>
+          )}
         </div>
       )}
 
@@ -957,6 +1017,11 @@ function PropertiesPanel({
       {/* Image properties */}
       {showImage && selectedEl?.type === 'image' && (
         <ImagePropsPanel el={selectedEl} onUpdate={(u) => onUpdateElement(selectedEl.id, u)} />
+      )}
+
+      {/* Shape properties */}
+      {selectedEl?.type === 'shape' && (
+        <ShapePropsPanel el={selectedEl as ShapeElement} onUpdate={(u) => onUpdateElement(selectedEl.id, u)} />
       )}
 
       {/* Delete selected */}
@@ -1161,6 +1226,107 @@ function ImagePropsPanel({ el, onUpdate }: { el: ImageElement; onUpdate: (u: Par
             </button>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shape props ─────────────────────────────────────────────
+
+function ShapePropsPanel({ el, onUpdate }: { el: ShapeElement; onUpdate: (u: Partial<ShapeElement>) => void }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-[11px] font-semibold text-[#1a1a18]/35 uppercase tracking-wider">Фигура</p>
+
+      {/* Shape type */}
+      <div className="space-y-1">
+        <p className="text-[11px] text-slate-400">Тип</p>
+        <div className="flex gap-1.5">
+          {([
+            { v: 'rect', icon: <Square size={14} />, label: 'Прямоугольник' },
+            { v: 'circle', icon: <CircleIcon size={14} />, label: 'Круг' },
+            { v: 'line', icon: <Minus size={14} />, label: 'Линия' },
+          ] as const).map(({ v, icon, label }) => (
+            <button
+              key={v}
+              title={label}
+              onClick={() => onUpdate({ shapeType: v })}
+              className={cn(
+                'p-2 rounded-xl transition-all touch-manipulation',
+                el.shapeType === v ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500',
+              )}
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Fill color */}
+      {el.shapeType !== 'line' && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-slate-400">Заливка</p>
+          <div className="flex gap-1.5 flex-wrap items-center">
+            {['transparent', '#ffffff', '#1a1a18', '#e11d48', '#2563eb', '#059669'].map((c) => (
+              <button
+                key={c}
+                onClick={() => onUpdate({ fill: c })}
+                className={cn(
+                  'w-6 h-6 rounded-lg border-2 transition-all touch-manipulation',
+                  el.fill === c ? 'border-slate-500 scale-110' : 'border-slate-200',
+                  c === 'transparent' && 'bg-[url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFklEQVR42mN8//8/AxQzgAAiABkAAAIABQAB")]',
+                )}
+                style={c !== 'transparent' ? { backgroundColor: c } : {}}
+              />
+            ))}
+            <label className="w-6 h-6 rounded-lg border-2 border-dashed border-slate-200 cursor-pointer flex items-center justify-center">
+              <span className="text-[9px] text-slate-400">+</span>
+              <input type="color" className="sr-only" value={el.fill.startsWith('#') ? el.fill : '#ffffff'} onChange={(e) => onUpdate({ fill: e.target.value })} />
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* Stroke color */}
+      <div className="space-y-1">
+        <p className="text-[11px] text-slate-400">Обводка</p>
+        <div className="flex gap-1.5 flex-wrap items-center">
+          {['transparent', '#ffffff', '#1a1a18', '#e11d48', '#2563eb', '#059669'].map((c) => (
+            <button
+              key={c}
+              onClick={() => onUpdate({ stroke: c })}
+              className={cn(
+                'w-6 h-6 rounded-lg border-2 transition-all touch-manipulation',
+                el.stroke === c ? 'border-slate-500 scale-110' : 'border-slate-200',
+              )}
+              style={c !== 'transparent' ? { backgroundColor: c } : { background: 'repeating-linear-gradient(45deg,#ccc,#ccc 2px,#fff 2px,#fff 4px)' }}
+            />
+          ))}
+          <label className="w-6 h-6 rounded-lg border-2 border-dashed border-slate-200 cursor-pointer flex items-center justify-center">
+            <span className="text-[9px] text-slate-400">+</span>
+            <input type="color" className="sr-only" value={el.stroke.startsWith('#') ? el.stroke : '#000000'} onChange={(e) => onUpdate({ stroke: e.target.value })} />
+          </label>
+        </div>
+      </div>
+
+      {/* Stroke width */}
+      <div className="space-y-1">
+        <p className="text-[11px] text-slate-400">Толщина: {el.strokeWidth}px</p>
+        <input type="range" min={0} max={16} value={el.strokeWidth} onChange={(e) => onUpdate({ strokeWidth: Number(e.target.value) })} className="w-full h-1 accent-slate-600" />
+      </div>
+
+      {/* Border radius (rect only) */}
+      {el.shapeType === 'rect' && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-slate-400">Скругление: {el.borderRadius}px</p>
+          <input type="range" min={0} max={80} value={el.borderRadius} onChange={(e) => onUpdate({ borderRadius: Number(e.target.value) })} className="w-full h-1 accent-slate-600" />
+        </div>
+      )}
+
+      {/* Opacity */}
+      <div className="space-y-1">
+        <p className="text-[11px] text-slate-400">Прозрачность: {Math.round(el.opacity * 100)}%</p>
+        <input type="range" min={0} max={100} value={Math.round(el.opacity * 100)} onChange={(e) => onUpdate({ opacity: Number(e.target.value) / 100 })} className="w-full h-1 accent-slate-600" />
       </div>
     </div>
   );

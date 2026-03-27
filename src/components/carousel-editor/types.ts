@@ -76,6 +76,7 @@ export interface GradientBackground {
 export interface ImageBackground {
   type: 'image';
   src: string;
+  brightness?: number; // 0.3 – 2.0, default 1
 }
 
 export type SlideBackground = SolidBackground | GradientBackground | ImageBackground;
