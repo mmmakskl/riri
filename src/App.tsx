@@ -29,7 +29,7 @@ import type { Project } from './hooks/useProjects';
 import { 
   Settings, Search, LayoutGrid, User, LogOut,
   Radar, Plus, X, Palette, Sparkles, Trash2, Users, Menu, BarChart2, Activity,
-  Image as ImageIcon
+  Image as ImageIcon, MessageCircleHeart
 } from 'lucide-react';
 import { GlassFolderIcon } from './components/ui/GlassFolderIcons';
 import { MobileBottomBar, type MobileTabId } from './components/ui/MobileBottomBar';
@@ -402,7 +402,7 @@ function AppContent() {
     return () => mq.removeEventListener('change', handler);
   }, []);
   const mobileTabs = [
-    { id: 'dashboard' as MobileTabId, icon: Sparkles, label: 'RiRi', iconColor: 'text-slate-500' },
+    { id: 'dashboard' as MobileTabId, icon: MessageCircleHeart, label: 'Чат', iconColor: 'text-slate-500' },
     { id: 'workspace' as MobileTabId, icon: LayoutGrid, label: 'Лента', iconColor: 'text-slate-500' },
     { id: 'profile' as MobileTabId, icon: User, label: 'Профиль', iconColor: 'text-slate-500' },
     { id: 'menu' as MobileTabId, icon: Menu, label: 'Меню', iconColor: 'text-slate-500' },
@@ -632,8 +632,8 @@ function AppContent() {
             <SidebarSection title="С чем тебе помочь?">
               <div className="space-y-0.5">
                 <SidebarLink
-                  icon={<Sparkles className="w-4 h-4" strokeWidth={2.5} />}
-                  label="RiRi"
+                  icon={<MessageCircleHeart className="w-4 h-4" strokeWidth={2.5} />}
+                  label="Чат с RiRi"
                   onClick={() => setViewMode('dashboard')}
                   isActive={viewMode === 'dashboard'}
                 />

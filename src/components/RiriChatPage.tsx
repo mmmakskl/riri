@@ -177,7 +177,7 @@ export function RiriChatPage() {
         <RiriOrb size={34} />
         <div>
           <p className="text-[17px] font-semibold text-[#1a1a18] leading-tight">RiRi</p>
-          <p className="text-[12px] text-[#1a1a18]/40">твоя подруга-ассистент</p>
+          <p className="text-[12px] text-[#1a1a18]/40">твой ассистент по контенту</p>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <span
@@ -207,7 +207,7 @@ export function RiriChatPage() {
               <div className="space-y-1.5">
                 <p className="text-[22px] font-semibold text-[#1a1a18]">Привет! Я RiRi</p>
                 <p className="text-[14px] text-[#1a1a18]/45 leading-relaxed max-w-[260px]">
-                  Спрашивай про приложение —<br />подскажу что где и как сделать
+                  Спрашивай про приложение,<br />подскажу что где и как сделать
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 justify-center">
@@ -261,7 +261,6 @@ export function RiriChatPage() {
             className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-1 text-[15px] text-[#1a1a18] placeholder:text-[#1a1a18]/35 focus:outline-none min-h-[50px] max-h-32 leading-relaxed"
           />
           <div className="flex items-center px-3 pb-3 pt-1">
-            <span className="text-[11px] text-[#1a1a18]/25">Gemini 2.5 Flash</span>
             <div className="ml-auto">
               <button
                 onClick={() => sendMessage()}
