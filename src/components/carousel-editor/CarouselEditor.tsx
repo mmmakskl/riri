@@ -577,6 +577,7 @@ function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage }: 
   const [exporting, setExporting] = useState(false);
   const [activePanel, setActivePanel] = useState<'add' | 'bg' | 'text' | 'image' | 'shape' | null>(null);
   const [regenBgLoading, setRegenBgLoading] = useState(false);
+  const [refineLoading, setRefineLoading] = useState(false);
   const [draftId] = useState<string>(initialDraftId ?? uid2());
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -736,6 +737,111 @@ function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage }: 
     }
   }, [aiOriginalImage, onUpdateBackground]);
 
+  const handleRefineSlide = useCallback(async () => {
+    if (!aiOriginalImage || !canvasRef.current) return;
+    setRefineLoading(true);
+    setSelectedId(null);
+    setEditingTextId(null);
+    try {
+      // Захватываем текущий слайд как изображение
+      const renderedDataUrl = await toPng(canvasRef.current, {
+        width: 1080, height: 1440, pixelRatio: 1,
+        style: { width: '1080px', height: '1440px', maxWidth: '1080px' },
+      });
+      const renderedBase64 = renderedDataUrl.replace(/^data:image\/png;base64,/, '');
+
+      const res = await fetch('/api/scriptwriter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'refine-carousel',
+          original_image: aiOriginalImage.base64,
+          original_mime: aiOriginalImage.mimeType,
+          rendered_image: renderedBase64,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // Применяем те же конвертеры что и при первом анализе
+      const px2x = (px: number) => Math.max(0, Math.min(94, (px / 1080) * 100));
+      const px2y = (px: number) => Math.max(0, Math.min(94, (px / 1440) * 100));
+      const px2w = (px: number) => Math.max(5, Math.min(100, (px / 1080) * 100));
+      const px2h = (px: number) => Math.max(1, Math.min(100, (px / 1440) * 100));
+      const FONT_MAP: Record<string, string> = {
+        'serif': "'Playfair Display', serif",
+        'italic-serif': "'Playfair Display', serif",
+        'sans-serif': 'Inter, sans-serif',
+        'heavy-sans': 'Montserrat, sans-serif',
+        'display': "'Bebas Neue', cursive",
+        'monospace': 'monospace',
+      };
+
+      const elements: SlideElement[] = (data.elements ?? []).flatMap((el: {
+        type: string; text?: string; x: number; y: number;
+        fontSize?: number; fontWeight?: number; color?: string;
+        textAlign?: string; width?: number; fontFamily?: string;
+        fontStyle?: string; rotation?: number; lineHeight?: number; letterSpacing?: number;
+        label?: string; borderRadius?: number; height?: number;
+        shapeType?: string; fill?: string; stroke?: string; strokeWidth?: number; opacity?: number;
+        zIndex?: number;
+      }): SlideElement[] => {
+        if (el.type === 'text') {
+          return [createDefaultTextElement({
+            text: el.text ?? 'Текст',
+            position: { x: px2x(el.x ?? 86), y: px2y(el.y ?? 115) },
+            fontSize: Math.max(24, Math.min(220, el.fontSize ?? 48)),
+            fontWeight: ([400, 700, 800, 900] as number[]).includes(el.fontWeight ?? 0) ? el.fontWeight! : 700,
+            color: el.color ?? '#1a1a18',
+            textAlign: (['left', 'center', 'right'].includes(el.textAlign ?? '') ? el.textAlign : 'left') as 'left' | 'center' | 'right',
+            width: px2w(el.width ?? 900),
+            fontFamily: FONT_MAP[el.fontFamily ?? ''] ?? 'Inter, sans-serif',
+            fontStyle: el.fontStyle === 'italic' ? 'italic' : 'normal',
+            rotation: typeof el.rotation === 'number' ? el.rotation : 0,
+            lineHeight: typeof el.lineHeight === 'number' ? Math.max(0.8, Math.min(2.5, el.lineHeight)) : 1.3,
+            letterSpacing: typeof el.letterSpacing === 'number' ? Math.max(-0.1, Math.min(0.5, el.letterSpacing)) : 0,
+            zIndex: el.zIndex ?? 2,
+          })];
+        }
+        if (el.type === 'placeholder') {
+          return [createDefaultPlaceholderElement({
+            position: { x: px2x(el.x ?? 86), y: px2y(el.y ?? 800) },
+            size: { width: px2w(el.width ?? 908), height: px2h(el.height ?? 500) },
+            label: el.label ?? 'Фото',
+            borderRadius: el.borderRadius ?? 16,
+            zIndex: el.zIndex ?? 1,
+          })];
+        }
+        if (el.type === 'shape') {
+          const validShapeTypes = ['rect', 'circle', 'line', 'arrow'] as const;
+          const rawType = el.shapeType ?? 'rect';
+          const shapeType = validShapeTypes.includes(rawType as typeof validShapeTypes[number])
+            ? rawType as typeof validShapeTypes[number] : 'rect';
+          return [createDefaultShapeElement({
+            position: { x: px2x(el.x ?? 86), y: px2y(el.y ?? 400) },
+            size: { width: px2w(el.width ?? 400), height: px2h(el.height ?? 140) },
+            shapeType,
+            fill: el.fill ?? 'transparent',
+            stroke: el.stroke ?? '#ffffff',
+            strokeWidth: el.strokeWidth ?? 2,
+            borderRadius: el.borderRadius ?? 0,
+            opacity: typeof el.opacity === 'number' ? el.opacity : 1,
+            zIndex: el.zIndex ?? 1,
+          })];
+        }
+        return [];
+      });
+
+      updateSlide(currentIdx, (s) => ({ ...s, elements }));
+      toast.success('Слайд улучшен');
+    } catch (err) {
+      console.error('Refine error:', err);
+      toast.error('Ошибка улучшения');
+    } finally {
+      setRefineLoading(false);
+    }
+  }, [aiOriginalImage, canvasRef, currentIdx, updateSlide]);
+
   const handleAddShape = useCallback(() => {
     const el = createDefaultShapeElement();
     onAddElement(el);
@@ -829,6 +935,20 @@ function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage }: 
             <BookmarkPlus size={13} />
             Черновик
           </button>
+          {aiOriginalImage && (
+            <button
+              onClick={handleRefineSlide}
+              disabled={refineLoading}
+              className={cn(
+                'flex items-center gap-1.5 rounded-2xl px-3 py-2 text-[13px] font-medium transition-all active:scale-95 touch-manipulation',
+                refineLoading ? 'bg-violet-300 text-white cursor-wait' : 'bg-violet-500 hover:bg-violet-600 text-white',
+              )}
+              style={{ boxShadow: '0 1px 6px rgba(139,92,246,0.3)' }}
+            >
+              {refineLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {refineLoading ? '...' : 'Улучшить'}
+            </button>
+          )}
           <button
             onClick={exportSlides}
             disabled={exporting}
