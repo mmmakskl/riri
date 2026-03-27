@@ -1034,9 +1034,38 @@ async function handleAnalyzeCarousel(req, res) {
   }
 
   // ── Шаг 2: если фон — фото/текстура, генерируем через Gemini Image Generation ──
+  // Два шага: сначала текстовое описание ТОЛЬКО фона, потом генерация из описания.
+  // Модель генерации НЕ видит оригинал — только текст, поэтому текст/иконки не попадают.
   if (parsed.background?.type === 'image') {
     try {
-      // google/gemini-2.5-flash-image через стандартный chat completions + modalities
+      // 2a. Gemini Vision описывает фон словами (без оригинального изображения в генерации)
+      let bgPrompt = null;
+      for (const model of VISION_MODELS) {
+        try {
+          const { text: desc } = await callOpenRouter({
+            apiKey: OPENROUTER_API_KEY,
+            model,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: `data:${mime_type};base64,${image_data}` } },
+                { type: 'text', text: `Describe ONLY the background layer of this image for image generation.
+Focus on: surface material, texture (grain/noise/smooth), dominant colors (exact hex if possible), lighting direction, atmosphere.
+IGNORE completely: all text, all icons, logos, UI elements, people, overlays.
+Reply with a single concise English paragraph (3-5 sentences). No lists. No mentions of text or typography.` },
+              ],
+            }],
+            temperature: 0.1,
+            max_tokens: 200,
+          });
+          if (desc?.trim()) { bgPrompt = desc.trim(); break; }
+        } catch (e) { /* try next model */ }
+      }
+
+      if (!bgPrompt) throw new Error('Could not describe background');
+      console.log('Background description:', bgPrompt);
+
+      // 2b. Gemini Image gen из текстового описания — оригинал не передаём
       const genRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -1051,10 +1080,7 @@ async function handleAnalyzeCarousel(req, res) {
           image_config: { aspect_ratio: '3:4' },
           messages: [{
             role: 'user',
-            content: [
-              { type: 'image_url', image_url: { url: `data:${mime_type};base64,${image_data}` } },
-              { type: 'text', text: 'Recreate ONLY the background of this carousel slide — the exact same texture, colors, grain, lighting, patterns, and atmosphere — without ANY text, icons, logos, people, or UI elements. Output a clean background image only.' },
-            ],
+            content: `Generate a clean background texture image based on this description: ${bgPrompt}. No text, no typography, no UI elements, no people, no icons. Pure background only.`,
           }],
         }),
       });
