@@ -212,33 +212,53 @@ function AiPhotoScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides
         const data = await res.json();
 
         const { background, elements = [] } = data as {
-          background: import('./types').SlideBackground;
+          background: { type: string; color?: string; from?: string; to?: string; direction?: string };
           elements: Array<{
             type: string; text?: string; x: number; y: number;
             fontSize?: number; fontWeight?: number; color?: string;
-            textAlign?: string; width?: number;
+            textAlign?: string; width?: number; fontFamily?: string;
             label?: string; borderRadius?: number; height?: number;
           }>;
         };
 
+        // Маппинг fontFamily от AI к реальным CSS-шрифтам
+        const FONT_MAP: Record<string, string> = {
+          'serif':        "'Playfair Display', serif",
+          'italic-serif': "'Playfair Display', serif",
+          'sans-serif':   'Inter, sans-serif',
+          'display':      "'Bebas Neue', cursive",
+          'monospace':    'monospace',
+        };
+
+        // Фон: если AI вернул type='image' — используем загруженный скриншот как фон
+        let resolvedBg: import('./types').SlideBackground;
+        if (!background || background.type === 'image') {
+          resolvedBg = { type: 'image', src: `data:${mimeType};base64,${base64}` };
+        } else if (background.type === 'gradient' && background.from && background.to) {
+          resolvedBg = { type: 'gradient', from: background.from, to: background.to, direction: background.direction ?? 'to bottom' };
+        } else {
+          resolvedBg = { type: 'solid', color: background.color ?? '#f5f5f4' };
+        }
+
         const newSlide = createDefaultSlide();
-        newSlide.background = background ?? { type: 'solid', color: '#f5f5f4' };
+        newSlide.background = resolvedBg;
         newSlide.elements = elements.flatMap((el): SlideElement[] => {
           if (el.type === 'text') {
             return [createDefaultTextElement({
               text: el.text ?? 'Текст',
               position: { x: Math.max(0, Math.min(90, el.x ?? 8)), y: Math.max(0, Math.min(90, el.y ?? 8)) },
-              fontSize: Math.max(24, Math.min(120, el.fontSize ?? 48)),
+              fontSize: Math.max(24, Math.min(160, el.fontSize ?? 48)),
               fontWeight: el.fontWeight === 400 ? 400 : 700,
               color: el.color ?? '#1a1a18',
               textAlign: (['left', 'center', 'right'].includes(el.textAlign ?? '') ? el.textAlign : 'left') as 'left' | 'center' | 'right',
-              width: Math.max(20, Math.min(90, el.width ?? 80)),
+              width: Math.max(20, Math.min(92, el.width ?? 80)),
+              fontFamily: FONT_MAP[el.fontFamily ?? ''] ?? 'Inter, sans-serif',
             })];
           }
           if (el.type === 'placeholder') {
             return [createDefaultPlaceholderElement({
               position: { x: Math.max(0, Math.min(90, el.x ?? 10)), y: Math.max(0, Math.min(90, el.y ?? 30)) },
-              size: { width: Math.max(10, Math.min(90, el.width ?? 80)), height: Math.max(5, Math.min(90, el.height ?? 45)) },
+              size: { width: Math.max(2, Math.min(90, el.width ?? 80)), height: Math.max(0.5, Math.min(90, el.height ?? 45)) },
               label: el.label ?? 'Фото',
               borderRadius: el.borderRadius ?? 16,
             })];

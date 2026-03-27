@@ -944,18 +944,19 @@ async function handleAnalyzeCarousel(req, res) {
 {
   "background": {
     "type": "solid",
-    "color": "#hex"
+    "color": "#1a1a18"
   },
   "elements": [
     {
       "type": "text",
-      "text": "текст блока",
+      "text": "точный текст блока",
       "x": 8, "y": 8,
-      "fontSize": 48,
+      "fontSize": 72,
       "fontWeight": 700,
-      "color": "#hex",
+      "color": "#ffffff",
       "textAlign": "left",
-      "width": 80
+      "width": 82,
+      "fontFamily": "serif"
     },
     {
       "type": "placeholder",
@@ -967,13 +968,27 @@ async function handleAnalyzeCarousel(req, res) {
   ]
 }
 
-Правила:
-- background: "solid" если однородный фон (укажи точный hex-цвет), "gradient" если переход (добавь from, to, direction="to bottom right").
-- Текстовые элементы (type="text"): максимум 6 шт. Точно скопируй текст. Координаты x, y в % (0-90). fontSize как если бы слайд 1080px шириной (24-120). fontWeight 400 или 700.
-- Для каждой фотографии/изображения на слайде: добавь элемент type="placeholder" с координатами и размерами в % (0-90). Это будет серый блок-заглушка. width и height тоже в %.
-- Если нет фото на слайде — не добавляй placeholder.
-- ВАЖНО: верни все заметные мелкие детали — разделительные линии (placeholder с height: 1-2%), иконки (placeholder маленький size).
-- Верни ТОЛЬКО JSON, без пояснений, без markdown.`;
+Правила для background:
+- Если фон ОДНОРОДНЫЙ или почти однородный (один цвет) → type="solid", color=точный hex-цвет пикселей фона (используй eyedropper-логику, определи максимально точно).
+- Если фон ГРАДИЕНТ (заметный переход цвета) → type="gradient", from=hex начала, to=hex конца, direction="to bottom" или "to bottom right" или другой CSS-направление.
+- Если фон ФОТОГРАФИЯ, текстура, рисунок, паттерн (не однородный) → type="image". Не пиши color или src, просто type="image".
+
+Правила для текстовых элементов:
+- Точно скопируй текст (важно!).
+- x, y — координаты верхнего левого угла в % от размера слайда (0-90).
+- fontSize — как если бы слайд 1080px шириной (диапазон 24-160).
+- fontWeight: 400 (обычный) или 700 (жирный).
+- fontFamily: "serif" если шрифт с засечками (Playfair, Times, Georgia-style), "sans-serif" если без засечек (Inter, Helvetica-style), "display" если декоративный/капительный (Bebas Neue, Impact-style), "italic-serif" если курсивный с засечками.
+- width — ширина текстового блока в % от ширины слайда.
+- Максимум 8 текстовых элементов.
+
+Правила для placeholder:
+- Для каждого фото/изображения/иконки на слайде добавь type="placeholder".
+- width и height в % от размеров слайда.
+- borderRadius: 0 если прямоугольник, 8-32 если скруглённые углы, 50 если круг.
+- Разделительные линии: height=0.5-1%.
+
+Верни ТОЛЬКО JSON, без пояснений, без markdown.`;
 
   // Модели с поддержкой vision (по приоритету)
   const VISION_MODELS = [
