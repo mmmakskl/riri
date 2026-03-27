@@ -1084,14 +1084,18 @@ CRITICAL: Do NOT mention text, words, typography, people, UI, or any objects. On
           image_config: { aspect_ratio: '3:4' },
           messages: [{
             role: 'user',
-            content: `Generate a seamless abstract material/texture photograph. The material looks like this: ${bgPrompt}
+            content: `Reproduce the exact background texture/surface from this description: ${bgPrompt}
 
-STRICT RULES — violating any rule makes the output useless:
-- Zero letters, zero words, zero numbers, zero symbols anywhere in the image
-- Zero UI elements, buttons, frames, or overlays
-- Zero people, faces, or body parts
-- The entire image must be 100% filled with the described texture/material
-- Think of it as a close-up photograph of a physical surface like paper, concrete, or fabric`,
+Your goal: create an image that looks almost identical (~same) to the original background — same colors, same grain, same material feel.
+
+ABSOLUTE RULES (each violation ruins the result):
+- NO text, letters, words, numbers, or any symbols anywhere
+- NO people, faces, human bodies, or body parts
+- NO photos of people or portraits
+- NO UI elements, buttons, icons, frames, or overlays
+- NO objects in the foreground — only the raw background surface
+- Fill 100% of the image with the background texture/material only
+- Imagine you are photographing a blank sheet of the same material with nothing on it`,
           }],
         }),
       });
