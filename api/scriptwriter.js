@@ -1047,9 +1047,10 @@ async function handleAnalyzeCarousel(req, res) {
     return res.status(502).json({ error: lastErr?.message ?? 'Vision API error' });
   }
 
-  // ── Шаг 2: если фон — фото/текстура, редактируем через gemini-2.5-flash-image ──────────
+  // ── Шаг 2: ВСЕГДА генерируем фон через gemini-2.5-flash-image ───────────────────────────
+  // Запускаем независимо от типа фона — AI может неправильно классифицировать текстуру
   // Без modalities — именно так работает в OpenRouter chat UI
-  if (parsed.background?.type === 'image') {
+  {
     try {
       const genRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
