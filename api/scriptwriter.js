@@ -1047,65 +1047,55 @@ async function handleAnalyzeCarousel(req, res) {
     return res.status(502).json({ error: lastErr?.message ?? 'Vision API error' });
   }
 
-  // ── Шаг 2: ВСЕГДА генерируем фон — двухшаговый подход через /images/generations ─────────
-  // Шаг 2a: Gemini Vision описывает фон текстом
+  // ── Шаг 2: ВСЕГДА генерируем фон через gemini-2.5-flash-image (chat/completions) ─────────
   try {
-    let bgPrompt = null;
-    for (const model of VISION_MODELS) {
-      try {
-        const { text } = await callOpenRouter({
-          apiKey: OPENROUTER_API_KEY,
-          model,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image_url', image_url: { url: `data:${mime_type};base64,${image_data}` } },
-              { type: 'text', text: 'Посмотри только на фон этого изображения. Игнорируй весь текст, иконки, UI элементы, блоки с фото поверх фона. Опиши только сам фон: цвет, текстуру, зернистость, освещение, атмосферу, стиль. Если на фоне есть человек или сцена — опиши их подробно. Ответь только описанием, без лишних слов. На русском.' },
-            ],
-          }],
-          temperature: 0.1,
-          max_tokens: 300,
-        });
-        if (text?.trim()) { bgPrompt = text.trim(); break; }
-      } catch (e) { /* next model */ }
+    const genRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://ririrai.vercel.app',
+        'X-Title': 'RiRi AI',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-image',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:${mime_type};base64,${image_data}` } },
+            { type: 'text', text: 'я прикрепил тебе фото. удали на нем все текста, блоки с фото (то есть все фото, кроме фона удали тоже), точки, все, кроме фона.\n\nсохрани точь в точь фон и дай мне только его. сохрани цвет, текстуру, палитру точь в точь.\n\nесли фоном является фото - создай это же фото.\n\nсделай фото размером 3 на 4.' },
+          ],
+        }],
+      }),
+    });
+
+    const genData = await genRes.json();
+    console.log('Gemini image gen status:', genRes.status, JSON.stringify(genData).slice(0, 500));
+
+    const msg = genData?.choices?.[0]?.message;
+    let imgSrc = null;
+    if (msg?.images?.[0]?.image_url?.url) imgSrc = msg.images[0].image_url.url;
+    if (!imgSrc && Array.isArray(msg?.content)) {
+      const imgPart = msg.content.find(p => p.type === 'image_url');
+      if (imgPart?.image_url?.url) imgSrc = imgPart.image_url.url;
+    }
+    if (!imgSrc && typeof msg?.content === 'string' && msg.content.startsWith('data:image')) {
+      imgSrc = msg.content;
     }
 
-    if (bgPrompt) {
-      // Шаг 2b: генерируем через /images/generations (рабочий подход)
-      const genRes = await fetch('https://openrouter.ai/api/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://ririrai.vercel.app',
-          'X-Title': 'RiRi AI',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image',
-          prompt: bgPrompt + '. Без текста, без надписей, без UI элементов, без блоков поверх. Только чистый фон.',
-          n: 1,
-          size: '1024x1024',
-          response_format: 'b64_json',
-        }),
-      });
-
-      const genData = await genRes.json();
-      console.log('Image gen status:', genRes.status, JSON.stringify(genData).slice(0, 300));
-
-      const item = genData?.data?.[0];
-      if (item?.b64_json) {
-        parsed.background = { type: 'image', src: `data:image/png;base64,${item.b64_json}` };
-        console.log('Background image generated OK');
-      } else if (item?.url) {
-        const imgRes = await fetch(item.url);
+    if (imgSrc) {
+      if (imgSrc.startsWith('http')) {
+        const imgRes = await fetch(imgSrc);
         if (imgRes.ok) {
           const buf = await imgRes.arrayBuffer();
-          parsed.background = { type: 'image', src: `data:image/png;base64,${Buffer.from(buf).toString('base64')}` };
-          console.log('Background image fetched from URL OK');
+          const ct = imgRes.headers.get('content-type') || 'image/png';
+          imgSrc = `data:${ct};base64,${Buffer.from(buf).toString('base64')}`;
         }
-      } else {
-        console.warn('Image gen: no image in response', JSON.stringify(genData).slice(0, 300));
       }
+      parsed.background = { type: 'image', src: imgSrc };
+      console.log('Background image generated OK');
+    } else {
+      console.warn('Gemini image gen: no image in response', JSON.stringify(genData).slice(0, 500));
     }
   } catch (err) {
     console.error('Background gen error:', err.message);
