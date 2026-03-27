@@ -1069,14 +1069,14 @@ Reply with only the prompt text, no explanations.`;
     if (bgGenPrompt) {
       const finalPrompt = bgGenPrompt + ', no text, no watermarks, no people, no UI, background texture only, high quality, seamless';
       // Пробуем модели по очереди
+      // DALL-E через OpenRouter — стандартный OpenAI-совместимый формат, надёжнее FLUX
       const IMAGE_MODELS = [
-        'black-forest-labs/flux-1-schnell',
-        'black-forest-labs/flux-schnell',
-        'black-forest-labs/flux-1.1-pro',
+        { model: 'openai/dall-e-2', size: '1024x1024' },
+        { model: 'openai/dall-e-3', size: '1024x1024' },
       ];
 
       let imageGenDone = false;
-      for (const imgModel of IMAGE_MODELS) {
+      for (const { model: imgModel, size } of IMAGE_MODELS) {
         if (imageGenDone) break;
         try {
           const genRes = await fetch('https://openrouter.ai/api/v1/images/generations', {
@@ -1091,8 +1091,8 @@ Reply with only the prompt text, no explanations.`;
               model: imgModel,
               prompt: finalPrompt,
               n: 1,
-              width: 768,
-              height: 1024,
+              size,
+              response_format: 'b64_json',
             }),
           });
 
