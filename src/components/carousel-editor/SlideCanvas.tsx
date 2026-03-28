@@ -306,14 +306,79 @@ function TextElementView({ el, selected, editing, scale, onSelect, onStartEdit, 
       {/* Inline format toolbar when editing */}
       {editing && (
         <div
-          className="absolute -top-9 left-0 flex items-center gap-0.5 px-1.5 py-1 rounded-xl z-40 select-none touch-none"
-          style={{ background: 'rgba(26,26,26,0.92)', backdropFilter: 'blur(8px)', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+          className="absolute left-0 z-40 select-none"
+          style={{ bottom: 'calc(100% + 6px)' }}
           onMouseDown={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.preventDefault()}
         >
-          <button className="px-2 py-0.5 text-white rounded-lg text-[12px] font-bold hover:bg-white/20 transition-colors" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold'); }}>B</button>
-          <button className="px-2 py-0.5 text-white rounded-lg text-[12px] italic hover:bg-white/20 transition-colors" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic'); }}>I</button>
-          <div className="w-px h-3 bg-white/20 mx-0.5" />
-          <button className="px-1.5 py-0.5 text-white rounded-lg text-[10px] hover:bg-white/20 transition-colors" onMouseDown={(e) => { e.preventDefault(); document.execCommand('removeFormat'); }}>✕</button>
+          <div
+            className="flex flex-col gap-1.5 px-2 py-2 rounded-2xl"
+            style={{ background: 'rgba(18,18,18,0.95)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', whiteSpace: 'nowrap' }}
+          >
+            {/* Row 1: Bold / Italic / remove */}
+            <div className="flex items-center gap-0.5">
+              <button className="px-2 py-1 text-white rounded-lg text-[12px] font-bold hover:bg-white/20 transition-colors" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold'); }}>B</button>
+              <button className="px-2 py-1 text-white rounded-lg text-[12px] italic hover:bg-white/20 transition-colors" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic'); }}>I</button>
+              <div className="w-px h-3 bg-white/15 mx-1" />
+              <button className="px-1.5 py-1 text-white/60 rounded-lg text-[10px] hover:bg-white/20 transition-colors" onMouseDown={(e) => { e.preventDefault(); document.execCommand('removeFormat'); }} title="Сбросить форматирование">✕</button>
+            </div>
+
+            {/* Row 2: Text color (A) */}
+            <div className="flex items-center gap-1">
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', width: 14, textAlign: 'center', fontWeight: 700 }}>A</span>
+              {['#ffffff', '#1a1a18', '#e11d48', '#f59e0b', '#059669', '#2563eb', '#8b5cf6'].map((c) => (
+                <button
+                  key={c}
+                  title={c}
+                  style={{
+                    width: 16, height: 16, borderRadius: '50%', background: c, flexShrink: 0,
+                    border: c === '#ffffff' ? '1.5px solid rgba(255,255,255,0.25)' : '1.5px solid transparent',
+                    boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
+                  }}
+                  onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); }}
+                />
+              ))}
+              <label style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} title="Свой цвет">
+                <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>+</span>
+                <input type="color" className="sr-only" onChange={(e) => { document.execCommand('foreColor', false, e.target.value); }} />
+              </label>
+            </div>
+
+            {/* Row 3: Highlight (фломастер) */}
+            <div className="flex items-center gap-1">
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', width: 14, textAlign: 'center' }}>▌</span>
+              {[
+                { color: 'transparent', label: 'Нет' },
+                { color: '#fef08a', label: 'Жёлтый' },
+                { color: '#86efac', label: 'Зелёный' },
+                { color: '#fca5a5', label: 'Красный' },
+                { color: '#93c5fd', label: 'Синий' },
+                { color: '#f0abfc', label: 'Фиолетовый' },
+                { color: '#fdba74', label: 'Оранжевый' },
+              ].map(({ color, label }) => (
+                <button
+                  key={color}
+                  title={label}
+                  style={{
+                    width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                    background: color === 'transparent' ? 'transparent' : color,
+                    border: color === 'transparent' ? '1.5px dashed rgba(255,255,255,0.3)' : '1.5px solid transparent',
+                    boxShadow: color === 'transparent' ? 'none' : '0 0 0 1px rgba(0,0,0,0.15)',
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (color === 'transparent') {
+                      // Remove highlight only: set to inherit/transparent
+                      document.execCommand('hiliteColor', false, 'transparent');
+                      document.execCommand('backColor', false, 'transparent');
+                    } else {
+                      document.execCommand('hiliteColor', false, color);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
