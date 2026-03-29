@@ -290,7 +290,10 @@ function TextElementView({ el, selected, editing, scale, onSelect, onStartEdit, 
       style={{
         left: `${el.position.x}%`,
         top: `${el.position.y}%`,
-        width: `${el.width}%`,
+        // При редактировании — фиксированная ширина (чтобы было место печатать)
+        // При отображении — fit-content: бокс облегает текст, не больше
+        width: editing ? `${el.width}%` : 'fit-content',
+        maxWidth: `${el.width}%`,
         transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
         transformOrigin: 'top left',
         zIndex: (el as any).zIndex ?? 1,
