@@ -521,6 +521,29 @@ function convertAiSlideData(data: {
   return slide;
 }
 
+// ─── SlideThumb — превью слайда Instagram (с fallback при CORS) ───────────────
+
+function SlideThumb({ url, index }: { url: string; index: number }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#1a1a18]/30">
+        <span className="text-[18px]">{index === 0 ? '🖼' : '📄'}</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt={`Слайд ${index + 1}`}
+      className="absolute inset-0 w-full h-full object-cover"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      draggable={false}
+    />
+  );
+}
+
 // ─── AiUrlScreen ─────────────────────────────────────────────
 
 const IG_GRADIENT = 'linear-gradient(135deg, #833ab4 0%, #c13584 100%)';
@@ -531,6 +554,7 @@ function AiUrlScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides: 
   const [url, setUrl] = useState('');
   const [code, setCode] = useState('');
   const [slideCount, setSlideCount] = useState(0);
+  const [slideUrls, setSlideUrls] = useState<string[]>([]);
   const [bgSlideIdx, setBgSlideIdx] = useState(0);
   const [regenFirstBg, setRegenFirstBg] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -550,6 +574,7 @@ function AiUrlScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides: 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setSlideCount(data.slide_count);
+      setSlideUrls(data.slide_urls || []);
       setCode(data.code);
       setBgSlideIdx(0);
       setRegenFirstBg(data.slide_count > 1);
@@ -666,19 +691,32 @@ function AiUrlScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides: 
             <GlassCard className="p-4 space-y-3">
               <p className="text-[13px] font-semibold text-[#1a1a18]">Какой слайд взять за основу фона?</p>
               <p className="text-[11px] text-[#1a1a18]/45 -mt-1">Фон этого слайда будет применён ко всей карусели</p>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {Array.from({ length: Math.min(slideCount, 15) }, (_, i) => (
                   <button
                     key={i}
                     onClick={() => setBgSlideIdx(i)}
                     className={cn(
-                      'aspect-[3/4] rounded-xl flex flex-col items-center justify-center gap-1 transition-all border-2',
-                      bgSlideIdx === i ? 'border-[#833ab4] text-[#833ab4]' : 'border-[#1a1a18]/10 text-[#1a1a18]/40 hover:border-[#1a1a18]/20',
+                      'aspect-[3/4] rounded-xl overflow-hidden relative transition-all border-2',
+                      bgSlideIdx === i ? 'border-[#833ab4]' : 'border-transparent',
                     )}
-                    style={bgSlideIdx === i ? { background: 'rgba(131,58,180,0.07)' } : { background: 'rgba(0,0,0,0.03)' }}
+                    style={{ background: 'rgba(0,0,0,0.06)' }}
                   >
-                    <span className="text-[14px]">{i === 0 ? '🖼' : '📄'}</span>
-                    <span className="text-[11px] font-semibold">{i + 1}</span>
+                    {slideUrls[i] ? (
+                      <SlideThumb url={slideUrls[i]} index={i} />
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#1a1a18]/30">
+                        <span className="text-[18px]">{i === 0 ? '🖼' : '📄'}</span>
+                        <span className="text-[11px] font-semibold">{i + 1}</span>
+                      </div>
+                    )}
+                    {bgSlideIdx === i && (
+                      <div className="absolute inset-0 rounded-[10px]" style={{ boxShadow: 'inset 0 0 0 2px #833ab4', background: 'rgba(131,58,180,0.12)' }} />
+                    )}
+                    <div className="absolute bottom-1 left-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold"
+                      style={{ background: bgSlideIdx === i ? IG_GRADIENT : 'rgba(0,0,0,0.45)', color: '#fff' }}>
+                      {i + 1}
+                    </div>
                   </button>
                 ))}
               </div>
