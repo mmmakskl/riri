@@ -1417,7 +1417,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
               {/* Folder dropdown — на мобильных bottom sheet (надёжный тап), на десктопе — выпадающий список */}
               {showFolderMenu && folderConfigs.length > 0 && (
                 isMobile ? createPortal(
-                  <div className="fixed inset-0 z-[200] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Выбор папки">
+                  <div className="fixed inset-0 z-[25000] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Выбор папки">
                     <div 
                       className="absolute inset-0 bg-black/40" 
                       onClick={() => setShowFolderMenu(false)}
