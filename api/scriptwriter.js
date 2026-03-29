@@ -1200,7 +1200,7 @@ async function fetchImageAsBase64(url) {
   return { base64, mimeType };
 }
 
-async function analyzeOneSlide(base64, mimeType, prompt, visionModels) {
+async function analyzeOneSlide(base64, mimeType, prompt, visionModels, { skipBgGen = false } = {}) {
   const messages = [{
     role: 'user',
     content: [
@@ -1222,8 +1222,8 @@ async function analyzeOneSlide(base64, mimeType, prompt, visionModels) {
   }
   if (!parsed) return null;
 
-  // Background generation (3 attempts)
-  if (parsed.background?.type === 'image') {
+  // Background generation (3 attempts) — пропускаем если skipBgGen=true
+  if (!skipBgGen && parsed.background?.type === 'image') {
     const bgBody = JSON.stringify({
       model: 'google/gemini-2.5-flash-image',
       modalities: ['image', 'text'],
@@ -1406,10 +1406,12 @@ async function handleAnalyzeCarouselFromUrl(req, res) {
       if (!img) return null;
       console.log(`Analyzing slide ${idx + 1}/${slideUrls.length}`);
       try {
-        const parsed = await analyzeOneSlide(img.base64, img.mimeType, CAROUSEL_ANALYSIS_PROMPT, VISION_MODELS);
+        // Генерация фона нужна только для: слайда 0 (если regen_first_bg) или если нет sharedBackground
+        const needBgGen = !sharedBackground || (idx === 0 && regen_first_bg);
+        const parsed = await analyzeOneSlide(img.base64, img.mimeType, CAROUSEL_ANALYSIS_PROMPT, VISION_MODELS, { skipBgGen: !needBgGen });
         if (!parsed) return null;
 
-        // Применяем общий фон, кроме первого слайда если regen_first_bg=true
+        // Применяем общий фон ко всем кроме слайда 0 с regen_first_bg
         if (sharedBackground && !(idx === 0 && regen_first_bg)) {
           parsed.background = sharedBackground;
         }
