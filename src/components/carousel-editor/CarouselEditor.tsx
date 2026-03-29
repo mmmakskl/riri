@@ -523,45 +523,71 @@ function convertAiSlideData(data: {
 
 // ─── AiUrlScreen ─────────────────────────────────────────────
 
+const IG_GRADIENT = 'linear-gradient(135deg, #833ab4 0%, #c13584 100%)';
+type UrlStep = 'url' | 'select' | 'generating';
+
 function AiUrlScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides: Slide[]) => void }) {
+  const [step, setStep] = useState<UrlStep>('url');
   const [url, setUrl] = useState('');
+  const [code, setCode] = useState('');
+  const [slideCount, setSlideCount] = useState(0);
+  const [bgSlideIdx, setBgSlideIdx] = useState(0);
+  const [regenFirstBg, setRegenFirstBg] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = useCallback(async () => {
+  const handleFetch = useCallback(async () => {
     const trimmed = url.trim();
     if (!trimmed) return;
     setLoading(true);
     setError(null);
-    setProgress('Получаю слайды из Instagram...');
     try {
       const res = await fetch('/api/scriptwriter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'analyze-carousel-from-url', instagram_url: trimmed }),
+        body: JSON.stringify({ action: 'fetch-carousel-slides', instagram_url: trimmed }),
       });
-      setProgress('Анализирую каждый слайд...');
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP ${res.status}`);
-      }
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setSlideCount(data.slide_count);
+      setCode(data.code);
+      setBgSlideIdx(0);
+      setRegenFirstBg(data.slide_count > 1);
+      setStep('select');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [url]);
+
+  const handleGenerate = useCallback(async () => {
+    setStep('generating');
+    setError(null);
+    try {
+      const res = await fetch('/api/scriptwriter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'analyze-carousel-from-url',
+          code,
+          background_slide_index: bgSlideIdx,
+          regen_first_bg: regenFirstBg,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       const rawSlides = data.slides as Array<{
         background: { type: string; color?: string; from?: string; to?: string; direction?: string; src?: string };
         elements: any[];
       }>;
       if (!rawSlides?.length) throw new Error('Слайды не получены');
-      const slides = rawSlides.map(convertAiSlideData);
-      onDone(slides);
+      onDone(rawSlides.map(convertAiSlideData));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`Ошибка: ${msg}`);
-    } finally {
-      setLoading(false);
-      setProgress('');
+      setError(err instanceof Error ? err.message : String(err));
+      setStep('select');
     }
-  }, [url, onDone]);
+  }, [code, bgSlideIdx, regenFirstBg, onDone]);
 
   return (
     <motion.div
@@ -571,83 +597,136 @@ function AiUrlScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides: 
       className="flex-1 flex flex-col overflow-y-auto px-4 custom-scrollbar-light"
     >
       <div className="max-w-2xl mx-auto w-full py-6 space-y-5">
+
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="flex items-center gap-1.5 text-[14px] text-[#1a1a18]/50 hover:text-[#1a1a18] transition-colors touch-manipulation">
+          <button
+            onClick={step === 'select' ? () => setStep('url') : onBack}
+            className="flex items-center gap-1.5 text-[14px] text-[#1a1a18]/50 hover:text-[#1a1a18] transition-colors touch-manipulation"
+          >
             <ArrowLeft size={16} />
             Назад
           </button>
           <h2 className="text-[17px] font-semibold text-[#1a1a18]">По ссылке Instagram</h2>
         </div>
 
-        <GlassCard className="p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #833ab4 0%, #c13584 100%)' }}>
-              <Link size={18} className="text-white" />
-            </div>
-            <p className="text-[14px] font-semibold text-[#1a1a18]">Как это работает</p>
-          </div>
-          <div className="space-y-3">
-            {[
-              'Вставь ссылку на карусель Instagram (пост или рилс)',
-              'ИИ скачает все слайды и воссоздаст каждый',
-              'Получаешь полностью редактируемую карусель',
-            ].map((step, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: 'linear-gradient(135deg, #833ab4 0%, #c13584 100%)' }}>
-                  <span className="text-[11px] font-bold text-white">{i + 1}</span>
+        {/* Шаг 1 — ввод URL */}
+        {step === 'url' && (
+          <>
+            <GlassCard className="p-4">
+              <p className="text-[11px] font-semibold text-[#1a1a18]/35 uppercase tracking-wider mb-2">Ссылка на карусель</p>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.instagram.com/p/..."
+                className="w-full rounded-xl px-3 py-2.5 text-[14px] text-[#1a1a18] outline-none border border-[#1a1a18]/10 focus:border-[#833ab4]/50 bg-white/60 transition-colors"
+                onKeyDown={(e) => { if (e.key === 'Enter' && !loading) handleFetch(); }}
+                disabled={loading}
+                autoFocus
+              />
+            </GlassCard>
+
+            <button
+              onClick={handleFetch}
+              disabled={loading || !url.trim()}
+              className={cn(
+                'w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-[15px] font-medium text-white transition-all active:scale-95 touch-manipulation',
+                loading || !url.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90',
+              )}
+              style={{ background: IG_GRADIENT, boxShadow: '0 1px 6px rgba(131,58,180,0.35)' }}
+            >
+              {loading ? <><Loader2 size={16} className="animate-spin" />Ищу слайды...</> : <><Link size={16} />Найти слайды</>}
+            </button>
+
+            {error && <p className="text-[13px] text-red-500 text-center">{error}</p>}
+
+            <GlassCard className="p-3">
+              <p className="text-[11px] text-[#1a1a18]/40 leading-relaxed">
+                Работает с публичными постами: <span className="font-mono text-[10px]">instagram.com/p/XXX</span> или <span className="font-mono text-[10px]">instagram.com/reel/XXX</span>
+              </p>
+            </GlassCard>
+          </>
+        )}
+
+        {/* Шаг 2 — выбор параметров */}
+        {step === 'select' && (
+          <>
+            <GlassCard className="p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: IG_GRADIENT }}>
+                  <span className="text-white text-[11px] font-bold">{slideCount}</span>
                 </div>
-                <p className="text-[13px] text-[#1a1a18]/60 leading-snug">{step}</p>
+                <p className="text-[14px] font-semibold text-[#1a1a18]">
+                  Найдено {slideCount} {slideCount === 1 ? 'слайд' : slideCount < 5 ? 'слайда' : 'слайдов'}
+                </p>
               </div>
-            ))}
-          </div>
-        </GlassCard>
+              <p className="text-[12px] text-[#1a1a18]/40 truncate">{url}</p>
+            </GlassCard>
 
-        <GlassCard className="p-4">
-          <p className="text-[11px] font-semibold text-[#1a1a18]/35 uppercase tracking-wider mb-2">Ссылка на карусель</p>
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://www.instagram.com/p/..."
-            className="w-full rounded-xl px-3 py-2.5 text-[14px] text-[#1a1a18] outline-none border border-[#1a1a18]/10 focus:border-[#833ab4]/50 bg-white/60 transition-colors"
-            onKeyDown={(e) => { if (e.key === 'Enter' && !loading) handleGenerate(); }}
-            disabled={loading}
-          />
-          {loading && progress && (
-            <p className="text-[12px] text-[#833ab4] mt-2 flex items-center gap-1.5">
-              <Loader2 size={12} className="animate-spin" />
-              {progress}
+            <GlassCard className="p-4 space-y-3">
+              <p className="text-[13px] font-semibold text-[#1a1a18]">Какой слайд взять за основу фона?</p>
+              <p className="text-[11px] text-[#1a1a18]/45 -mt-1">Фон этого слайда будет применён ко всей карусели</p>
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: Math.min(slideCount, 15) }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setBgSlideIdx(i)}
+                    className={cn(
+                      'aspect-[3/4] rounded-xl flex flex-col items-center justify-center gap-1 transition-all border-2',
+                      bgSlideIdx === i ? 'border-[#833ab4] text-[#833ab4]' : 'border-[#1a1a18]/10 text-[#1a1a18]/40 hover:border-[#1a1a18]/20',
+                    )}
+                    style={bgSlideIdx === i ? { background: 'rgba(131,58,180,0.07)' } : { background: 'rgba(0,0,0,0.03)' }}
+                  >
+                    <span className="text-[14px]">{i === 0 ? '🖼' : '📄'}</span>
+                    <span className="text-[11px] font-semibold">{i + 1}</span>
+                  </button>
+                ))}
+              </div>
+            </GlassCard>
+
+            {slideCount > 1 && (
+              <GlassCard className="p-4">
+                <button className="w-full flex items-center gap-3 text-left" onClick={() => setRegenFirstBg(!regenFirstBg)}>
+                  <div
+                    className={cn('w-5 h-5 rounded-md flex-shrink-0 flex items-center justify-center border-2 transition-all', regenFirstBg ? 'border-[#833ab4]' : 'border-[#1a1a18]/15')}
+                    style={regenFirstBg ? { background: IG_GRADIENT } : {}}
+                  >
+                    {regenFirstBg && <span className="text-white text-[10px] font-bold">✓</span>}
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-semibold text-[#1a1a18]">Воссоздать фон первого слайда отдельно</p>
+                    <p className="text-[11px] text-[#1a1a18]/45 mt-0.5">Обложка часто отличается от остальных слайдов</p>
+                  </div>
+                </button>
+              </GlassCard>
+            )}
+
+            {error && <p className="text-[13px] text-red-500 text-center">{error}</p>}
+
+            <button
+              onClick={handleGenerate}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-[15px] font-medium text-white transition-all active:scale-95 touch-manipulation hover:opacity-90"
+              style={{ background: IG_GRADIENT, boxShadow: '0 1px 6px rgba(131,58,180,0.35)' }}
+            >
+              <Sparkles size={16} />
+              Воссоздать карусель
+            </button>
+          </>
+        )}
+
+        {/* Шаг 3 — генерация */}
+        {step === 'generating' && (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: IG_GRADIENT }}>
+              <Loader2 size={26} className="text-white animate-spin" />
+            </div>
+            <p className="text-[16px] font-semibold text-[#1a1a18]">Воссоздаю карусель...</p>
+            <p className="text-[13px] text-[#1a1a18]/45 text-center max-w-xs">
+              ИИ анализирует {slideCount} {slideCount === 1 ? 'слайд' : slideCount < 5 ? 'слайда' : 'слайдов'} параллельно. Обычно 20–40 сек.
             </p>
-          )}
-        </GlassCard>
+          </div>
+        )}
 
-        <button
-          onClick={handleGenerate}
-          disabled={loading || !url.trim()}
-          className={cn(
-            'w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-[15px] font-medium text-white transition-all active:scale-95 touch-manipulation',
-            loading || !url.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90',
-          )}
-          style={{ background: 'linear-gradient(135deg, #833ab4 0%, #c13584 100%)', boxShadow: '0 1px 6px rgba(131,58,180,0.35)' }}
-        >
-          {loading ? (
-            <><Loader2 size={16} className="animate-spin" />Воссоздаю карусель...</>
-          ) : (
-            <><Sparkles size={16} />Воссоздать карусель</>
-          )}
-        </button>
-
-        {error && <p className="text-[13px] text-red-500 text-center">{error}</p>}
-
-        <GlassCard className="p-3">
-          <p className="text-[11px] text-[#1a1a18]/40 leading-relaxed">
-            💡 Работает с публичными постами Instagram. Ссылка вида{' '}
-            <span className="font-mono text-[10px]">instagram.com/p/XXX</span> или{' '}
-            <span className="font-mono text-[10px]">instagram.com/reel/XXX</span>
-          </p>
-        </GlassCard>
       </div>
     </motion.div>
   );

@@ -50,6 +50,8 @@ export default async function handler(req, res) {
       return handleQuickGenerate(req, res);
     case 'analyze-carousel':
       return handleAnalyzeCarousel(req, res);
+    case 'fetch-carousel-slides':
+      return handleFetchCarouselSlides(req, res);
     case 'analyze-carousel-from-url':
       return handleAnalyzeCarouselFromUrl(req, res);
     case 'regen-background':
@@ -1276,69 +1278,148 @@ async function analyzeOneSlide(base64, mimeType, prompt, visionModels) {
   return parsed;
 }
 
-async function handleAnalyzeCarouselFromUrl(req, res) {
-  const { instagram_url, shortcode } = req.body ?? {};
+// ─── Shared: Instagram slide URL extraction ────────────────────────────────────
 
-  // 1. Извлекаем shortcode
-  let code = shortcode;
-  if (!code && instagram_url) {
-    const match = instagram_url.match(/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
-    code = match ? match[1] : null;
+function extractShortcode(instagram_url, shortcode) {
+  if (shortcode) return shortcode;
+  if (!instagram_url) return null;
+  const match = instagram_url.match(/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+function getIgImageUrl(item) {
+  return item?.image_versions2?.candidates?.[0]?.url
+    || item?.image_versions2?.items?.[0]?.url
+    || item?.image_versions?.candidates?.[0]?.url
+    || item?.image_versions?.items?.[0]?.url
+    || item?.display_url
+    || item?.images?.standard_resolution?.url
+    || item?.images?.low_resolution?.url
+    || item?.thumbnail_src
+    || item?.url
+    || (item?.video_versions?.[0]?.url ?? null);
+}
+
+async function fetchInstagramSlideUrls(code) {
+  const apiUrl = `https://instagram-scraper-20251.p.rapidapi.com/postdetail/?code_or_url=${code}`;
+  const reelRes = await fetch(apiUrl, {
+    headers: { 'x-rapidapi-host': 'instagram-scraper-20251.p.rapidapi.com', 'x-rapidapi-key': RAPIDAPI_KEY_CONST },
+  });
+  if (!reelRes.ok) throw new Error(`Instagram API ${reelRes.status}`);
+
+  const raw = await reelRes.json();
+  console.log('IG API raw keys:', Object.keys(raw).slice(0, 10));
+  const media = raw?.data || raw?.items?.[0] || raw;
+  console.log('IG media keys:', media ? Object.keys(media).slice(0, 20) : 'null');
+
+  // Попробуем все известные структуры карусели
+  let carouselItems = null;
+  if (Array.isArray(media?.carousel_media) && media.carousel_media.length > 0) {
+    carouselItems = media.carousel_media;
+  } else if (Array.isArray(media?.children?.items) && media.children.items.length > 0) {
+    carouselItems = media.children.items;
+  } else if (Array.isArray(media?.edge_sidecar_to_children?.edges) && media.edge_sidecar_to_children.edges.length > 0) {
+    carouselItems = media.edge_sidecar_to_children.edges.map(e => e.node ?? e);
   }
+
+  let slideUrls = [];
+  if (carouselItems) {
+    slideUrls = carouselItems.map(getIgImageUrl).filter(Boolean);
+  }
+
+  // Одиночный пост — одна «карусель»
+  if (slideUrls.length === 0) {
+    const single = getIgImageUrl(media);
+    if (single) slideUrls = [single];
+  }
+
+  console.log('Extracted slide URLs:', slideUrls.length, slideUrls[0]?.slice(0, 60));
+  return slideUrls;
+}
+
+// ─── fetch-carousel-slides ─────────────────────────────────────────────────────
+// Быстрый шаг 1: только список URL слайдов, без AI
+
+async function handleFetchCarouselSlides(req, res) {
+  const { instagram_url, shortcode } = req.body ?? {};
+  const code = extractShortcode(instagram_url, shortcode);
   if (!code) return res.status(400).json({ error: 'Не удалось извлечь shortcode из URL' });
 
-  // 2. Получаем слайды через RapidAPI
-  console.log('analyze-carousel-from-url: fetching shortcode', code);
+  try {
+    const slideUrls = await fetchInstagramSlideUrls(code);
+    if (slideUrls.length === 0) return res.status(404).json({ error: 'Слайды не найдены. Проверь ссылку.' });
+    return res.status(200).json({ slide_count: slideUrls.length, code, slide_urls: slideUrls });
+  } catch (err) {
+    return res.status(502).json({ error: 'Ошибка Instagram: ' + err.message });
+  }
+}
+
+// ─── analyze-carousel-from-url ────────────────────────────────────────────────
+// Шаг 2: полный AI-анализ. background_slide_index — слайд-основа фона для всех.
+
+async function handleAnalyzeCarouselFromUrl(req, res) {
+  const { instagram_url, shortcode, code: codeParam, background_slide_index = 0, regen_first_bg = false } = req.body ?? {};
+  const code = codeParam || extractShortcode(instagram_url, shortcode);
+  if (!code) return res.status(400).json({ error: 'Не удалось извлечь shortcode из URL' });
+
+  console.log('analyze-carousel-from-url: code =', code, '| bg_slide =', background_slide_index);
+
   let slideUrls = [];
   try {
-    const apiUrl = `https://instagram-scraper-20251.p.rapidapi.com/postdetail/?code_or_url=${code}`;
-    const reelRes = await fetch(apiUrl, {
-      headers: { 'x-rapidapi-host': 'instagram-scraper-20251.p.rapidapi.com', 'x-rapidapi-key': RAPIDAPI_KEY_CONST },
-    });
-    if (!reelRes.ok) return res.status(502).json({ error: `Instagram API вернул ${reelRes.status}` });
-
-    const reelData = await reelRes.json();
-    const media = reelData?.data || reelData?.items?.[0] || reelData;
-
-    const getImageUrl = (item) =>
-      item.image_versions2?.candidates?.[0]?.url
-      || item.image_versions?.candidates?.[0]?.url
-      || item.display_url || item.thumbnail_src || item.url || null;
-
-    const carouselMedia = media.carousel_media || media.children?.items
-      || (media.edge_sidecar_to_children?.edges?.map(e => e.node));
-
-    if (Array.isArray(carouselMedia) && carouselMedia.length > 0) {
-      slideUrls = carouselMedia.map(getImageUrl).filter(Boolean);
-    }
-    if (slideUrls.length === 0) {
-      const single = getImageUrl(media);
-      if (single) slideUrls = [single];
-    }
-    console.log('Got slide URLs:', slideUrls.length);
+    slideUrls = await fetchInstagramSlideUrls(code);
   } catch (err) {
-    return res.status(502).json({ error: 'Ошибка получения данных Instagram: ' + err.message });
+    return res.status(502).json({ error: 'Ошибка Instagram: ' + err.message });
+  }
+  if (slideUrls.length === 0) return res.status(404).json({ error: 'Слайды не найдены. Проверь ссылку.' });
+  if (slideUrls.length > 15) slideUrls = slideUrls.slice(0, 15);
+
+  const VISION_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash-001', 'google/gemini-2.0-flash-lite-001'];
+  const bgIdx = Math.min(background_slide_index, slideUrls.length - 1);
+
+  // Скачиваем все слайды + выбранный фоновый слайд
+  const BATCH = 3;
+  const downloadedImages = new Array(slideUrls.length).fill(null);
+
+  for (let i = 0; i < slideUrls.length; i += BATCH) {
+    const batch = slideUrls.slice(i, i + BATCH).map((url, bi) => ({ url, idx: i + bi }));
+    await Promise.all(batch.map(async ({ url, idx }) => {
+      try {
+        downloadedImages[idx] = await fetchImageAsBase64(url);
+      } catch (err) {
+        console.error(`Download slide ${idx + 1} error:`, err.message);
+      }
+    }));
   }
 
-  if (slideUrls.length === 0) return res.status(404).json({ error: 'Слайды не найдены. Проверь ссылку.' });
-  if (slideUrls.length > 15) slideUrls = slideUrls.slice(0, 15); // Лимит
+  // Фоновый слайд — его фон будет применяться ко всем
+  const bgImage = downloadedImages[bgIdx];
+  let sharedBackground = null;
 
-  // Переиспользуем prompt из handleAnalyzeCarousel
-  const VISION_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash-001', 'google/gemini-2.0-flash-lite-001'];
+  if (bgImage) {
+    // Генерируем фон из слайда-основы
+    const tempParsed = await analyzeOneSlide(bgImage.base64, bgImage.mimeType, CAROUSEL_ANALYSIS_PROMPT, VISION_MODELS);
+    if (tempParsed?.background) sharedBackground = tempParsed.background;
+  }
 
-  // 3. Обрабатываем слайды параллельно батчами по 3
+  // Анализируем каждый слайд (элементы) и подставляем общий фон
   const results = [];
-  const BATCH = 3;
   for (let i = 0; i < slideUrls.length; i += BATCH) {
-    const batch = slideUrls.slice(i, i + BATCH);
-    const batchResults = await Promise.all(batch.map(async (url, bi) => {
-      const slideIdx = i + bi;
-      console.log(`Processing slide ${slideIdx + 1}/${slideUrls.length}`);
+    const batch = slideUrls.slice(i, i + BATCH).map((_, bi) => i + bi);
+    const batchResults = await Promise.all(batch.map(async (idx) => {
+      const img = downloadedImages[idx];
+      if (!img) return null;
+      console.log(`Analyzing slide ${idx + 1}/${slideUrls.length}`);
       try {
-        const { base64, mimeType } = await fetchImageAsBase64(url);
-        return await analyzeOneSlide(base64, mimeType, CAROUSEL_ANALYSIS_PROMPT, VISION_MODELS);
+        const parsed = await analyzeOneSlide(img.base64, img.mimeType, CAROUSEL_ANALYSIS_PROMPT, VISION_MODELS);
+        if (!parsed) return null;
+
+        // Применяем общий фон, кроме первого слайда если regen_first_bg=true
+        if (sharedBackground && !(idx === 0 && regen_first_bg)) {
+          parsed.background = sharedBackground;
+        }
+        return parsed;
       } catch (err) {
-        console.error(`Slide ${slideIdx + 1} error:`, err.message);
+        console.error(`Slide ${idx + 1} analysis error:`, err.message);
         return null;
       }
     }));
@@ -1346,9 +1427,8 @@ async function handleAnalyzeCarouselFromUrl(req, res) {
   }
 
   const slides = results.filter(Boolean);
-  console.log(`analyze-carousel-from-url done: ${slides.length}/${slideUrls.length} slides`);
-
-  if (slides.length === 0) return res.status(502).json({ error: 'Не удалось проанализировать ни один слайд' });
+  console.log(`Done: ${slides.length}/${slideUrls.length} slides`);
+  if (slides.length === 0) return res.status(502).json({ error: 'Не удалось проанализировать слайды' });
   return res.status(200).json({ slides, slide_count: slides.length, total: slideUrls.length });
 }
 
