@@ -578,9 +578,55 @@ function convertAiSlideData(data: {
           if (!checkOverlap()) continue;
         }
 
-        // Шаг 4: крайний случай — сдвинуть выше placeholder
+        // Шаг 4: сдвинуть в наиболее логичную сторону
+        // Считаем насколько нужно сдвинуть в каждую из 4 сторон
         const textH = estimateTextHeight(t);
-        t = { ...t, position: { ...t.position, y: Math.max(0, phTop - textH - 1.5) } };
+        const tCenterY = t.position.y + textH / 2;
+        const tCenterX = t.position.x + t.width / 2;
+        const phCenterY = phTop + ph.size.height / 2;
+        const phCenterX = phLeft + ph.size.width / 2;
+
+        // Расстояния для выталкивания в каждую сторону
+        const pushUp    = t.position.y + textH - phTop;           // сколько надо уйти вверх
+        const pushDown  = (phTop + ph.size.height) - t.position.y; // сколько надо уйти вниз
+        const pushLeft  = t.position.x + t.width - phLeft;         // сколько надо уйти влево
+        const pushRight = (phLeft + ph.size.width) - t.position.x; // сколько надо уйти вправо
+
+        // Проверяем хватит ли места на холсте в каждом направлении
+        const canUp    = t.position.y - pushUp >= 0;
+        const canDown  = t.position.y + textH + pushDown <= 100;
+        const canLeft  = t.position.x - pushLeft >= 0;
+        const canRight = t.position.x + t.width + pushRight <= 96;
+
+        // Выбираем направление: сначала по тому где центр текста относительно фото
+        // (текст левее центра фото → лучше двигать влево, и т.д.)
+        const preferVertical = Math.abs(tCenterY - phCenterY) >= Math.abs(tCenterX - phCenterX);
+
+        if (preferVertical) {
+          if (tCenterY < phCenterY && canUp) {
+            // Текст выше центра фото → двигаем вверх
+            t = { ...t, position: { ...t.position, y: Math.max(0, phTop - textH - 1.5) } };
+          } else if (canDown) {
+            // Текст ниже центра фото → двигаем вниз
+            t = { ...t, position: { ...t.position, y: Math.min(96, phTop + ph.size.height + 1.5) } };
+          } else if (tCenterX < phCenterX && canLeft) {
+            t = { ...t, position: { ...t.position, x: Math.max(0, phLeft - t.width - 1.5) } };
+          } else if (canRight) {
+            t = { ...t, position: { ...t.position, x: Math.min(96, phLeft + ph.size.width + 1.5) } };
+          }
+        } else {
+          if (tCenterX < phCenterX && canLeft) {
+            // Текст левее центра фото → двигаем влево
+            t = { ...t, position: { ...t.position, x: Math.max(0, phLeft - t.width - 1.5) } };
+          } else if (canRight) {
+            // Текст правее центра фото → двигаем вправо
+            t = { ...t, position: { ...t.position, x: Math.min(96, phLeft + ph.size.width + 1.5) } };
+          } else if (tCenterY < phCenterY && canUp) {
+            t = { ...t, position: { ...t.position, y: Math.max(0, phTop - textH - 1.5) } };
+          } else if (canDown) {
+            t = { ...t, position: { ...t.position, y: Math.min(96, phTop + ph.size.height + 1.5) } };
+          }
+        }
       }
 
       return t;
