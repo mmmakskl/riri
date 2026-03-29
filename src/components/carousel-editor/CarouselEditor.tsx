@@ -518,37 +518,72 @@ function convertAiSlideData(data: {
     return { ...t, position: { ...t.position, x: Math.max(0, pillCenterX - t.width / 2) }, textAlign: 'center' as const };
   });
 
-  // Smart post-processing 2: сдвигаем текст вверх если он перекрывает placeholder
+  // Smart post-processing 2: текст не должен перекрывать placeholder
+  // Органичные правила (в порядке приоритета):
+  //   1. Сжать межстрочный интервал (lineHeight)
+  //   2. Сжать межбуквенный интервал (letterSpacing)
+  //   3. Расширить ширину блока (чтобы текст занял меньше строк)
+  //   4. Сдвинуть вверх (крайний случай)
   const placeholders = slide.elements.filter(e => e.type === 'placeholder') as import('./types').PlaceholderElement[];
   if (placeholders.length > 0) {
+    // Вспомогательная функция: приблизительная высота текстового блока в %
+    // Считаем по средней ширине символа (fontSize*0.55) → кол-во строк → высота в %
+    const estimateTextHeight = (t: import('./types').TextElement): number => {
+      const charWidth = t.fontSize * 0.55; // ~ширина символа в px
+      const widthPx = (t.width / 100) * 1080;
+      const charsPerLine = Math.max(1, Math.floor(widthPx / charWidth));
+      const textLen = t.text.replace(/<[^>]+>/g, '').length || 10;
+      const lines = Math.ceil(textLen / charsPerLine);
+      const heightPx = lines * t.fontSize * (t.lineHeight ?? 1.3);
+      return (heightPx / 1440) * 100;
+    };
+
     slide.elements = slide.elements.map((el) => {
       if (el.type !== 'text') return el;
-      const t = el as import('./types').TextElement;
-      // Приблизительная высота текстового блока в % (fontSize в px / 1440 * 100)
-      const textHeightPct = (t.fontSize * 1.4 * 3) / 1440 * 100; // ~3 строки запас
-      const tTop = t.position.y;
-      const tBottom = tTop + textHeightPct;
+      let t = { ...(el as import('./types').TextElement) };
 
       for (const ph of placeholders) {
         const phTop = ph.position.y;
-        const phBottom = phTop + ph.size.height;
         const phLeft = ph.position.x;
         const phRight = phLeft + ph.size.width;
+
         const tLeft = t.position.x;
         const tRight = tLeft + t.width;
-
-        // Проверяем X-пересечение
         const xOverlap = tLeft < phRight && tRight > phLeft;
-        // Проверяем Y-пересечение
-        const yOverlap = tTop < phBottom && tBottom > phTop;
+        if (!xOverlap) continue;
 
-        if (xOverlap && yOverlap) {
-          // Текст перекрывает фото — сдвигаем его выше placeholder
-          const newY = Math.max(0, phTop - textHeightPct - 2);
-          return { ...t, position: { ...t.position, y: newY } };
+        const checkOverlap = () => {
+          const tBottom = t.position.y + estimateTextHeight(t);
+          return t.position.y < (phTop + ph.size.height) && tBottom > phTop;
+        };
+
+        if (!checkOverlap()) continue;
+
+        // Шаг 1: сжать межстрочный интервал до минимума (1.0)
+        if ((t.lineHeight ?? 1.3) > 1.0) {
+          t = { ...t, lineHeight: Math.max(1.0, (t.lineHeight ?? 1.3) - 0.15) };
+          if (!checkOverlap()) continue;
         }
+
+        // Шаг 2: убрать межбуквенный интервал
+        if ((t.letterSpacing ?? 0) > 0) {
+          t = { ...t, letterSpacing: 0 };
+          if (!checkOverlap()) continue;
+        }
+
+        // Шаг 3: расширить ширину блока (текст займёт меньше строк)
+        const maxWidth = 92; // % от холста
+        if (t.width < maxWidth) {
+          t = { ...t, width: Math.min(maxWidth, t.width * 1.3) };
+          if (!checkOverlap()) continue;
+        }
+
+        // Шаг 4: крайний случай — сдвинуть выше placeholder
+        const textH = estimateTextHeight(t);
+        t = { ...t, position: { ...t.position, y: Math.max(0, phTop - textH - 1.5) } };
       }
-      return el;
+
+      return t;
     });
   }
 
