@@ -812,7 +812,7 @@ function AppContent() {
             {viewMode === 'history' && <History />}
             {viewMode === 'profile' && <ProfilePage />}
             {viewMode === 'usage' && isAdmin && <UsageStats />}
-            {viewMode === 'carousel-editor' && <CarouselEditor />}
+            {viewMode === 'carousel-editor' && <CarouselEditor projectId={currentProjectId} userId={user?.id} />}
           </motion.div>
         </AnimatePresence>
       </div>

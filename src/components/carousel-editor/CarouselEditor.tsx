@@ -1,4 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useProjectCarousels } from '../../hooks/useProjectCarousels';
+import type { ProjectCarousel } from '../../hooks/useProjectCarousels';
 import { toPng } from 'html-to-image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -24,32 +26,28 @@ import {
 
 // ─── Draft system ─────────────────────────────────────────────
 
-interface CarouselDraft {
-  id: string;
-  name: string;
-  slides: Slide[];
-  updatedAt: number;
-}
+// CarouselDraft — совместим с ProjectCarousel из Supabase
+type CarouselDraft = ProjectCarousel;
 
 function uid2(): string {
   return `draft_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function getDrafts(): CarouselDraft[] {
+// localStorage — только fallback когда нет проекта
+function getDraftsLocal(): CarouselDraft[] {
   try { return JSON.parse(localStorage.getItem('carousel_drafts') || '[]'); } catch { return []; }
 }
-
-function saveDraftToStorage(draft: CarouselDraft): void {
-  const all = getDrafts().filter((d) => d.id !== draft.id);
+function saveDraftLocal(draft: CarouselDraft): void {
+  const all = getDraftsLocal().filter((d) => d.id !== draft.id);
   localStorage.setItem('carousel_drafts', JSON.stringify([draft, ...all].slice(0, 3)));
 }
-
-function deleteDraftFromStorage(id: string): void {
-  localStorage.setItem('carousel_drafts', JSON.stringify(getDrafts().filter((d) => d.id !== id)));
+function deleteDraftLocal(id: string): void {
+  localStorage.setItem('carousel_drafts', JSON.stringify(getDraftsLocal().filter((d) => d.id !== id)));
 }
 
-function formatDraftDate(ts: number): string {
-  return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+function formatDraftDate(ts: string | number): string {
+  const d = typeof ts === 'number' ? new Date(ts) : new Date(ts);
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 // ─── Shared design tokens (matching AIScriptwriter) ───────────
@@ -71,17 +69,16 @@ type EditorMode = 'home' | 'create' | 'template' | 'ai-photo' | 'ai-url';
 
 // ─── Home screen ─────────────────────────────────────────────
 
-function HomeScreen({ onMode, onLoadDraft }: { onMode: (m: EditorMode) => void; onLoadDraft: (draft: CarouselDraft) => void }) {
-  const [drafts, setDrafts] = useState<CarouselDraft[]>([]);
-
-  useState(() => {
-    setDrafts(getDrafts().slice(0, 5));
-  });
-
+function HomeScreen({ onMode, onLoadDraft, drafts, onDeleteDraft, draftsLoading }: {
+  onMode: (m: EditorMode) => void;
+  onLoadDraft: (draft: CarouselDraft) => void;
+  drafts: CarouselDraft[];
+  onDeleteDraft: (id: string) => void;
+  draftsLoading?: boolean;
+}) {
   const handleDeleteDraft = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteDraftFromStorage(id);
-    setDrafts((prev) => prev.filter((d) => d.id !== id));
+    onDeleteDraft(id);
   };
 
   return (
@@ -212,7 +209,7 @@ function HomeScreen({ onMode, onLoadDraft }: { onMode: (m: EditorMode) => void; 
         </motion.div>
 
         {/* Drafts */}
-        {drafts.length > 0 && (
+        {(drafts.length > 0 || draftsLoading) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -221,7 +218,8 @@ function HomeScreen({ onMode, onLoadDraft }: { onMode: (m: EditorMode) => void; 
             <div className="space-y-2">
               <p className="text-[11px] font-semibold text-[#1a1a18]/35 uppercase tracking-wider flex items-center gap-1.5">
                 <FolderOpen size={12} />
-                Черновики
+                Черновики проекта
+                {draftsLoading && <Loader2 size={10} className="animate-spin ml-1" />}
               </p>
               {drafts.map((draft) => (
                 <button
@@ -239,7 +237,7 @@ function HomeScreen({ onMode, onLoadDraft }: { onMode: (m: EditorMode) => void; 
                     <div className="flex-1 min-w-0">
                       <p className="text-[14px] font-medium text-[#1a1a18] leading-tight truncate">{draft.name}</p>
                       <p className="text-[11px] text-[#1a1a18]/35 leading-snug mt-0.5">
-                        {draft.slides.length} сл. · {formatDraftDate(draft.updatedAt)}
+                        {draft.slides.length} сл. · {formatDraftDate(draft.updated_at)}
                       </p>
                     </div>
                     <button
@@ -938,12 +936,13 @@ const PRESET_GRADIENTS = [
 
 // ─── Free editor ──────────────────────────────────────────────
 
-function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage, onUpdateOriginalImage }: {
+function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage, onUpdateOriginalImage, onSaveDraft }: {
   onBack: () => void;
   initialSlides?: Slide[];
   initialDraftId?: string;
   aiOriginalImage?: { base64: string; mimeType: string };
   onUpdateOriginalImage?: (img: { base64: string; mimeType: string }) => void;
+  onSaveDraft?: (id: string, name: string, slides: Slide[]) => Promise<void>;
 }) {
   const [slides, setSlides] = useState<Slide[]>(initialSlides ?? [createDefaultSlide()]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -1004,17 +1003,17 @@ function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage, on
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-    autosaveTimerRef.current = setTimeout(() => {
-      const draft: CarouselDraft = {
-        id: draftId,
-        name: `Автосохранение ${new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`,
-        slides,
-        updatedAt: Date.now(),
-      };
-      saveDraftToStorage(draft);
+    autosaveTimerRef.current = setTimeout(async () => {
+      const name = `Автосохранение ${new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`;
+      if (onSaveDraft) {
+        await onSaveDraft(draftId, name, slides);
+      } else {
+        const draft: CarouselDraft = { id: draftId, project_id: '', name, slides, created_by: null, updated_by: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        saveDraftLocal(draft);
+      }
       setLastSaved(Date.now());
     }, 2000);
-  }, [slides, draftId]);
+  }, [slides, draftId, onSaveDraft]);
 
   const slide = slides[currentIdx];
 
@@ -1104,18 +1103,17 @@ function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage, on
     else setActivePanel(null);
   }, [slide.elements]);
 
-  const handleSaveDraft = useCallback(() => {
-    const now = Date.now();
-    const draft: CarouselDraft = {
-      id: draftId,
-      name: `Черновик ${new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`,
-      slides,
-      updatedAt: now,
-    };
-    saveDraftToStorage(draft);
-    setLastSaved(now);
+  const handleSaveDraft = useCallback(async () => {
+    const name = `Черновик ${new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`;
+    if (onSaveDraft) {
+      await onSaveDraft(draftId, name, slides);
+    } else {
+      const draft: CarouselDraft = { id: draftId, project_id: '', name, slides, created_by: null, updated_by: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      saveDraftLocal(draft);
+    }
+    setLastSaved(Date.now());
     toast.success('Черновик сохранён');
-  }, [draftId, slides]);
+  }, [draftId, slides, onSaveDraft]);
 
   const handleAddText = useCallback(() => {
     const el = createDefaultTextElement({ text: 'Твой текст' });
@@ -2484,11 +2482,42 @@ function TemplateEditor({ onBack }: { onBack: () => void }) {
 
 // ─── Root ─────────────────────────────────────────────────────
 
-export function CarouselEditor() {
+export function CarouselEditor({ projectId, userId }: { projectId?: string | null; userId?: string | null }) {
   const [mode, setMode] = useState<EditorMode>('home');
   const [aiGeneratedSlides, setAiGeneratedSlides] = useState<Slide[] | null>(null);
   const [aiOriginalImage, setAiOriginalImage] = useState<{ base64: string; mimeType: string } | null>(null);
   const [loadedDraft, setLoadedDraft] = useState<CarouselDraft | null>(null);
+
+  // Supabase carousels (when in a project)
+  const { carousels: remoteCarousels, loading: remoteLoading, save: saveRemote, remove: removeRemote } = useProjectCarousels(projectId ?? null, userId ?? null);
+
+  // Local fallback (no project)
+  const [localDrafts, setLocalDrafts] = useState<CarouselDraft[]>(() => getDraftsLocal());
+
+  const drafts = useMemo(() => {
+    if (projectId) return remoteCarousels;
+    return localDrafts;
+  }, [projectId, remoteCarousels, localDrafts]);
+
+  const saveDraft = useCallback(async (id: string, name: string, slides: Slide[]) => {
+    const now = new Date().toISOString();
+    const draft: CarouselDraft = { id, project_id: projectId ?? '', name, slides, created_by: userId ?? null, updated_by: userId ?? null, created_at: now, updated_at: now };
+    if (projectId) {
+      await saveRemote(id, name, slides);
+    } else {
+      saveDraftLocal(draft);
+      setLocalDrafts(getDraftsLocal());
+    }
+  }, [projectId, userId, saveRemote]);
+
+  const deleteDraft = useCallback(async (id: string) => {
+    if (projectId) {
+      await removeRemote(id);
+    } else {
+      deleteDraftLocal(id);
+      setLocalDrafts(getDraftsLocal());
+    }
+  }, [projectId, removeRemote]);
 
   const handleAiDone = useCallback((slides: Slide[], img: { base64: string; mimeType: string }) => {
     setAiGeneratedSlides(slides);
@@ -2531,7 +2560,7 @@ export function CarouselEditor() {
           transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
           className="flex-1 flex flex-col overflow-hidden"
         >
-          {mode === 'home' && <HomeScreen onMode={setMode} onLoadDraft={handleLoadDraft} />}
+          {mode === 'home' && <HomeScreen onMode={setMode} onLoadDraft={handleLoadDraft} drafts={drafts} onDeleteDraft={deleteDraft} draftsLoading={projectId ? remoteLoading : false} />}
           {mode === 'create' && (
             <FreeEditor
               onBack={() => { setAiGeneratedSlides(null); setAiOriginalImage(null); setLoadedDraft(null); setMode('home'); }}
@@ -2539,6 +2568,7 @@ export function CarouselEditor() {
               initialDraftId={loadedDraft?.id}
               aiOriginalImage={aiOriginalImage ?? undefined}
               onUpdateOriginalImage={(img) => setAiOriginalImage(img)}
+              onSaveDraft={saveDraft}
             />
           )}
           {mode === 'template' && <TemplateEditor onBack={() => setMode('home')} />}
