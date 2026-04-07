@@ -78,8 +78,9 @@ export default async function handler(req, res) {
   if (action === 'usage-stats') return handleUsageStats(req, res, supabaseUrl, supabaseServiceKey);
   if (action === 'user-token-stats') return handleUserTokenStats(req, res, supabaseUrl, supabaseServiceKey);
   if (action === 'token-spend-details') return handleTokenSpendDetails(req, res, supabaseUrl, supabaseServiceKey);
+  if (action === 'timer-completed') return handleTimerCompleted(req, res, supabase);
 
-  return res.status(400).json({ error: 'Unknown action', expected: ['invite', 'remove', 'role', 'usage-stats', 'user-token-stats', 'token-spend-details'] });
+  return res.status(400).json({ error: 'Unknown action', expected: ['invite', 'remove', 'role', 'usage-stats', 'user-token-stats', 'token-spend-details', 'timer-completed'] });
 }
 
 async function sendInviteEmailNotification(projectName, email, memberId) {
@@ -496,6 +497,49 @@ async function handleTokenSpendDetails(req, res, supabaseUrl, supabaseServiceKey
     });
   } catch (err) {
     console.error('[token-spend-details]', err?.message);
+    return res.status(500).json({ error: err?.message || 'Internal error' });
+  }
+}
+
+async function handleTimerCompleted(req, res, supabase) {
+  const { videoId, projectId, completedBy, videoTitle } = req.body || {};
+  if (!videoId || !projectId || !completedBy) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  try {
+    const { data: project } = await supabase
+      .from('projects')
+      .select('name, project_manager_id, owner_id, user_id')
+      .eq('id', projectId)
+      .maybeSingle();
+
+    const notifyUserId = project?.project_manager_id || project?.owner_id || project?.user_id;
+    if (!notifyUserId) return res.status(200).json({ success: true, message: 'No one to notify' });
+
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return res.status(200).json({ success: true, message: 'No bot token' });
+
+    const username = notifyUserId.replace(/^tg-/, '').replace(/^@/, '').toLowerCase();
+    const { data: chatRow } = await supabase
+      .from('telegram_chats')
+      .select('chat_id')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (!chatRow?.chat_id) return res.status(200).json({ success: true, message: 'PM chat_id not found' });
+
+    const cleanName = completedBy.replace(/^tg-/, '').replace(/^@/, '');
+    const text = `✅ <b>Видео обработано</b>\n\n📹 ${videoTitle || 'Без названия'}\n📁 Проект: ${project.name || 'Без названия'}\n👤 Ответственный: @${cleanName}\n\nОтветственный отметил видео как готовое.`;
+
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatRow.chat_id, text, parse_mode: 'HTML' }),
+    });
+
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('[timer-completed]', err?.message);
     return res.status(500).json({ error: err?.message || 'Internal error' });
   }
 }

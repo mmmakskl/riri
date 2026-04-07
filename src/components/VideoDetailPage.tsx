@@ -1740,11 +1740,11 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
                         // Отправляем уведомление проджекту
                         if (currentProjectId) {
                           try {
-                            await fetch('/api/responsible-timer', {
+                            await fetch('/api/project', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
-                                action: 'completed',
+                                action: 'timer-completed',
                                 videoId: video.id,
                                 projectId: currentProjectId,
                                 completedBy: userId,
