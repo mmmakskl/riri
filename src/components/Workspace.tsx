@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { cn } from '../utils/cn';
 import { proxyImageUrl } from '../utils/imagePlaceholder';
 import { VideoGradientCard } from './ui/VideoGradientCard';
+import { ResponsibleTimer } from './ui/ResponsibleTimer';
 import { VideoDetailPage } from './VideoDetailPage';
 import { CarouselDetailPage } from './CarouselDetailPage';
 import { useCarousels, type SavedCarousel } from '../hooks/useCarousels';
@@ -1709,6 +1710,19 @@ export function Workspace(_props?: WorkspaceProps) {
                       </div>
                     }
                   />
+                  {/* Компактный таймер ответственного — поверх карточки */}
+                  {(video as any).responsible_assigned_at && !!(video as any).responsibles?.some?.((r: any) => r.value?.trim()) && !(video as any).responsible_timer_done && (
+                    <div className="absolute top-1.5 left-1.5 z-10">
+                      <ResponsibleTimer
+                        assignedAt={(video as any).responsible_assigned_at}
+                        timerDone={(video as any).responsible_timer_done}
+                        hasResponsible
+                        canComplete={false}
+                        onComplete={async () => {}}
+                        compact
+                      />
+                    </div>
+                  )}
                   </div>
                 );
               })}

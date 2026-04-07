@@ -30,6 +30,7 @@ import { calculateViralMultiplier, getOrUpdateProfileStats, applyViralMultiplier
 import { isRussian } from '../utils/language';
 import { TokenBadge } from './ui/TokenBadge';
 import { getTokenCost } from '../constants/tokenCosts';
+import { ResponsibleTimer } from './ui/ResponsibleTimer';
 
 /** Сырые данные ссылок/ответственных из БД (по templateId или legacy label) */
 type VideoLinkRow = { templateId?: string; label?: string; value: string };
@@ -65,6 +66,10 @@ interface VideoData {
   responsibles?: VideoResponsibleRow[];
   caption_translation?: string;
   post_description?: string;
+  // Таймер ответственного
+  responsible_assigned_at?: string;
+  responsible_timer_done?: boolean;
+  responsible_timer_done_at?: string;
 }
 
 interface VideoDetailPageProps {
@@ -314,7 +319,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
     }
   }, [video.id, video.storage_video_url, video.download_url]);
 
-  const { updateVideoFolder, updateVideoScript, updateVideoTranscript, updateVideoTranslation, updateVideoResponsible, updateVideoLinks, updateVideoShortcode, updateVideoCaptionTranslation, updateVideoPostDescription } = useInboxVideos();
+  const { updateVideoFolder, updateVideoScript, updateVideoTranscript, updateVideoTranslation, updateVideoResponsible, updateVideoLinks, updateVideoShortcode, updateVideoCaptionTranslation, updateVideoPostDescription, markVideoTimerDone } = useInboxVideos();
   const { canAfford, deduct } = useTokenBalance();
   const { reels } = useProjectAnalytics(currentProjectId);
   const refFolderIds = (currentProject?.folders ?? []).map(f => f.id);
@@ -1709,6 +1714,53 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
                   </button>
                 </div>
               </div>
+
+              {/* Таймер ответственного — 24ч на обработку */}
+              {(() => {
+                const hasResp = responsibles.some(r => r.value.trim() !== '');
+                const userId = user?.id || '';
+                const isCurrentUserResponsible = responsibles.some(r => {
+                  const v = r.value.trim().toLowerCase().replace(/^@/, '');
+                  const u = userId.toLowerCase().replace(/^tg-/, '').replace(/^@/, '');
+                  return v && u && v === u;
+                });
+                const isProjectManager = currentProject?.project_manager_id
+                  ? userId.toLowerCase() === currentProject.project_manager_id.toLowerCase()
+                  : false;
+                return hasResp ? (
+                  <ResponsibleTimer
+                    assignedAt={video.responsible_assigned_at ?? null}
+                    timerDone={video.responsible_timer_done}
+                    hasResponsible={hasResp}
+                    canComplete={isCurrentUserResponsible || isProjectManager || isAdminOrOwner}
+                    onComplete={async () => {
+                      const ok = await markVideoTimerDone(video.id);
+                      if (ok) {
+                        toast.success('Видео отмечено как готовое');
+                        // Отправляем уведомление проджекту
+                        if (currentProjectId) {
+                          try {
+                            await fetch('/api/responsible-timer', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                action: 'completed',
+                                videoId: video.id,
+                                projectId: currentProjectId,
+                                completedBy: userId,
+                                videoTitle: video.caption || video.title || 'Без названия',
+                              }),
+                            });
+                          } catch {}
+                        }
+                      } else {
+                        toast.error('Ошибка');
+                      }
+                    }}
+                  />
+                ) : null;
+              })()}
+
               <div className="space-y-2">
                 {responsibles.map((row) => (
                   <div

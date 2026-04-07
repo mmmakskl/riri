@@ -1279,7 +1279,7 @@ function SetupModal({ onSave, onClose, initial }: { onSave: (u: string) => void;
 type SubView = 'overview' | 'reels' | 'charts' | 'responsibles';
 
 export function Analytics() {
-  const { currentProjectId, currentProject } = useProjectContext();
+  const { currentProjectId, currentProject, updateProject } = useProjectContext();
   const {
     reels, snapshots, loading, syncing, stats, instagramUsername, lastSyncAt,
     loadAnalytics, loadProjectConfig, setInstagramUsername, syncReels,
@@ -1685,6 +1685,44 @@ export function Analytics() {
           <p className="text-[13px] text-slate-500">
             Сумма просмотров роликов, у которых указан ответственный. Заполняйте логины в карточках видео в ленте.
           </p>
+
+          {/* Проджект-менеджер — получает уведомления о просрочках */}
+          <div
+            className="p-4 rounded-3xl"
+            style={{
+              background: 'rgba(255,255,255,0.7)',
+              backdropFilter: 'blur(24px) saturate(180%)',
+              border: '1px solid rgba(255,255,255,0.8)',
+              boxShadow: '0 8px 32px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.9)',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[15px] font-semibold text-slate-800 tracking-tight">Проджект-менеджер</p>
+                <p className="text-[12px] text-slate-500 mt-0.5">Получает уведомления в Telegram, если ответственный не обработал видео за 24 часа</p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <select
+                value={currentProject?.project_manager_id || ''}
+                onChange={async (e) => {
+                  if (!currentProjectId) return;
+                  const val = e.target.value || undefined;
+                  try {
+                    await updateProject(currentProjectId, { project_manager_id: val || (null as any) });
+                    toast.success(val ? 'Проджект назначен' : 'Проджект убран');
+                  } catch { toast.error('Ошибка сохранения'); }
+                }}
+                className="flex-1 px-3 py-2.5 rounded-2xl border border-slate-200/80 bg-white/90 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/50 appearance-none cursor-pointer"
+                style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394a3b8\' stroke-width=\'2\'%3E%3Cpath d=\'m6 9 6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+              >
+                <option value="">Не выбран</option>
+                {participants.map(p => (
+                  <option key={p} value={`tg-${p.replace(/^@/, '')}`}>{p}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           {/* Прикрепления: все исходники из папок + ролики. Показываем всегда блок, при пустоте — подсказку */}
           <div

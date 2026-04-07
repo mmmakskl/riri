@@ -86,6 +86,8 @@ export interface Project {
   isShared?: boolean;
   membershipStatus?: 'active' | 'pending';
   owner_id?: string;
+  /** Проджект-менеджер проекта — получает уведомления о просрочке таймера ответственных */
+  project_manager_id?: string;
 }
 
 const DEFAULT_LINKS_TEMPLATE: ProjectTemplateItem[] = [
@@ -258,6 +260,7 @@ export function useProjects() {
             isShared: p.isShared || false,
             membershipStatus: p.membershipStatus,
             owner_id: p.owner_id || p.user_id,
+            project_manager_id: p.project_manager_id ?? undefined,
           };
         });
         
@@ -390,7 +393,7 @@ export function useProjects() {
   }, [getUserId, projects.length]);
 
   // Обновление проекта (в т.ч. шаблоны ссылок, ответственных, стили сценария, папки каруселей)
-  const updateProject = useCallback(async (projectId: string, updates: Partial<Pick<Project, 'name' | 'color' | 'icon' | 'folders' | 'carouselFolders' | 'linksTemplate' | 'responsiblesTemplate' | 'stylePrompt' | 'styleMeta' | 'styleExamplesCount' | 'projectStyles' | 'descriptionTemplates'>>) => {
+  const updateProject = useCallback(async (projectId: string, updates: Partial<Pick<Project, 'name' | 'color' | 'icon' | 'folders' | 'carouselFolders' | 'linksTemplate' | 'responsiblesTemplate' | 'stylePrompt' | 'styleMeta' | 'styleExamplesCount' | 'projectStyles' | 'descriptionTemplates' | 'project_manager_id'>>) => {
     try {
       const dbUpdates: Record<string, unknown> = { ...updates };
       if ('carouselFolders' in updates) dbUpdates.carousel_folders = updates.carouselFolders ?? [];

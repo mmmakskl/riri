@@ -48,6 +48,10 @@ interface SavedVideo {
   // Значения ссылок/ответственных: по templateId (из шаблона проекта) или legacy { label, value }
   links?: { templateId?: string; label?: string; value: string }[];
   responsibles?: { templateId?: string; label?: string; value: string }[];
+  // Таймер ответственного (24ч)
+  responsible_assigned_at?: string;
+  responsible_timer_done?: boolean;
+  responsible_timer_done_at?: string;
 }
 
 /** Элемент списка ссылок/ответственных (label из шаблона проекта, value из видео) */
@@ -920,7 +924,12 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
     try {
       let query = supabase
         .from('saved_videos')
-        .update({ folder_id: folderValue })
+        .update({
+          folder_id: folderValue,
+          // Перемещение по папкам сбрасывает таймер ответственного (рестарт 24ч)
+          responsible_assigned_at: new Date().toISOString(),
+          responsible_notified_at: null,
+        })
         .eq('id', videoId);
 
       if (currentProjectId) {
@@ -1133,10 +1142,19 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
       await setUserContext(userId);
 
       const payload = items.map(({ templateId, value }) => ({ templateId, value: value || '' }));
+      const hasAnyResponsible = payload.some(r => r.value.trim() !== '');
 
       const { data, error } = await supabase
         .from('saved_videos')
-        .update({ responsibles: payload })
+        .update({
+          responsibles: payload,
+          // Если назначили хотя бы одного ответственного — стартуем таймер 24ч
+          // Если всех убрали — сбрасываем таймер
+          responsible_assigned_at: hasAnyResponsible ? new Date().toISOString() : null,
+          responsible_timer_done: false,
+          responsible_timer_done_at: null,
+          responsible_notified_at: null,
+        })
         .eq('id', videoId)
         .select('id')
         .maybeSingle();
@@ -1329,6 +1347,33 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
     }
   }, [getUserId]);
 
+  /**
+   * Отмечает видео как «готово» — останавливает таймер 24ч ответственного.
+   * Может нажать только ответственный или проджект-менеджер.
+   */
+  const markVideoTimerDone = useCallback(async (videoId: string): Promise<boolean> => {
+    try {
+      const userId = getUserId();
+      await setUserContext(userId);
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('saved_videos')
+        .update({ responsible_timer_done: true, responsible_timer_done_at: now })
+        .eq('id', videoId)
+        .select('id')
+        .maybeSingle();
+      if (error) { console.error('Error marking timer done:', error); return false; }
+      if (!data) { console.warn('markVideoTimerDone: no row updated'); return false; }
+      setVideos(prev => prev.map(v =>
+        v.id === videoId ? { ...v, responsible_timer_done: true, responsible_timer_done_at: now } as any : v
+      ));
+      return true;
+    } catch (err) {
+      console.error('Error marking timer done:', err);
+      return false;
+    }
+  }, [getUserId]);
+
   return {
     videos,
     folderCounts,
@@ -1348,6 +1393,7 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
     updateVideoShortcode,
     updateVideoCaptionTranslation,
     updateVideoPostDescription,
+    markVideoTimerDone,
     restoreVideo,
     startVideoProcessing, // Ручной запуск транскрибации
     refreshThumbnail,
