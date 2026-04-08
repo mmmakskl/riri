@@ -133,6 +133,12 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
     editing_responsible?: string;
     links?: { templateId?: string; label?: string; value: string }[];
     responsibles?: { templateId?: string; label?: string; value: string }[];
+    caption?: string;
+    caption_translation?: string;
+    post_description?: string;
+    responsible_assigned_at?: string;
+    responsible_timer_done?: boolean;
+    responsible_timer_done_at?: string;
   } => {
     const links = Array.isArray(video.links) && video.links.length > 0
       ? video.links.map((row: any) => ({
@@ -183,6 +189,13 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
       editing_responsible: video.editing_responsible,
       links,
       responsibles,
+      caption: video.caption,
+      caption_translation: (video as any).caption_translation,
+      post_description: (video as any).post_description,
+      // Таймер ответственного
+      responsible_assigned_at: video.responsible_assigned_at || undefined,
+      responsible_timer_done: video.responsible_timer_done || false,
+      responsible_timer_done_at: video.responsible_timer_done_at || undefined,
     };
   }, []);
 
