@@ -1381,7 +1381,7 @@ async function handleAnalyzeCarouselFromUrl(req, res) {
   console.log('analyze-carousel-from-url: code =', code, '| bg_slide =', background_slide_index, '| regen_first =', regen_first_bg, '| translate =', translate);
 
   const prompt = translate
-    ? CAROUSEL_ANALYSIS_PROMPT + '\n\nВАЖНО: Переведи весь текст всех элементов на русский язык. Сохраняй смысл, стиль и форматирование — меняй только язык.'
+    ? CAROUSEL_ANALYSIS_PROMPT + '\n\nВАЖНО: Переведи весь текст всех элементов на русский язык. Сохраняй смысл, стиль и форматирование — меняй только язык. Для каждого текстового элемента добавь поле "originalText" с оригинальным текстом (до перевода), а в поле "text" помести переведённый текст.'
     : CAROUSEL_ANALYSIS_PROMPT;
 
   let slideUrls = [];

@@ -26,6 +26,7 @@ export interface TextElement {
   lineHeight?: number;    // e.g. 1.2, 1.4 — CSS line-height multiplier
   letterSpacing?: number; // em units, e.g. -0.02 to 0.3
   zIndex?: number;        // layer order, higher = on top
+  originalText?: string;  // оригинальный текст до перевода
 }
 
 export interface ImageElement {

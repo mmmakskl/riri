@@ -408,7 +408,7 @@ function AiPhotoScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides
 function convertAiSlideData(data: {
   background: { type: string; color?: string; from?: string; to?: string; direction?: string; src?: string };
   elements: Array<{
-    type: string; text?: string; x: number; y: number;
+    type: string; text?: string; originalText?: string; x: number; y: number;
     fontSize?: number; fontWeight?: number; color?: string;
     textAlign?: string; width?: number; fontFamily?: string;
     fontStyle?: string; rotation?: number; lineHeight?: number; letterSpacing?: number;
@@ -460,6 +460,7 @@ function convertAiSlideData(data: {
         lineHeight: typeof el.lineHeight === 'number' ? Math.max(0.8, Math.min(2.5, el.lineHeight)) : 1.3,
         letterSpacing: typeof el.letterSpacing === 'number' ? Math.max(-0.1, Math.min(0.5, el.letterSpacing)) : 0,
         zIndex: el.zIndex ?? 2,
+        ...(el.originalText ? { originalText: el.originalText } : {}),
       })];
     }
     if (el.type === 'placeholder') {
@@ -2050,6 +2051,23 @@ function TextPropsPanel({ el, onUpdate }: { el: TextElement; onUpdate: (u: Parti
           className="w-full h-1 accent-slate-600"
         />
       </div>
+
+      {/* Оригинальный текст (если был перевод) */}
+      {el.originalText && (
+        <div className="space-y-1.5 pt-1">
+          <p className="text-[11px] font-semibold text-[#1a1a18]/35 uppercase tracking-wider">Оригинал</p>
+          <div className="rounded-xl px-3 py-2.5 space-y-2" style={{ background: '#f8f8f6', border: '1px solid rgba(0,0,0,0.07)' }}>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-[#1a1a18]/30 uppercase tracking-wider">EN</span>
+              <p className="text-[12px] text-[#1a1a18]/55 leading-relaxed">{el.originalText}</p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-[#1a1a18]/30 uppercase tracking-wider">RU</span>
+              <p className="text-[12px] text-[#1a1a18]/55 leading-relaxed">{el.text}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
