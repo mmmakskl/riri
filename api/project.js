@@ -529,7 +529,9 @@ async function handleTimerCompleted(req, res, supabase) {
     if (!chatRow?.chat_id) return res.status(200).json({ success: true, message: 'PM chat_id not found' });
 
     const cleanName = completedBy.replace(/^tg-/, '').replace(/^@/, '');
-    const text = `✅ <b>Видео обработано</b>\n\n📹 ${videoTitle || 'Без названия'}\n📁 Проект: ${project.name || 'Без названия'}\n👤 Ответственный: @${cleanName}\n\nОтветственный отметил видео как готовое.`;
+    const titleRaw = videoTitle || 'Без названия';
+    const titleShort = titleRaw.length > 80 ? titleRaw.slice(0, 80) + '…' : titleRaw;
+    const text = `✅ <b>Видео обработано</b>\n\n📹 ${titleShort}\n📁 Проект: ${project.name || 'Без названия'}\n👤 Ответственный: @${cleanName}\n\nОтветственный отметил видео как готовое.`;
 
     await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
