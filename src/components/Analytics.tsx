@@ -1697,7 +1697,7 @@ export function Analytics() {
 
           {/* Проджект-менеджер — получает уведомления о просрочках */}
           <div
-            className="p-4 rounded-3xl relative overflow-visible"
+            className={cn("p-4 rounded-3xl relative overflow-visible", showPmPicker && "z-[50]")}
             style={{
               background: 'rgba(255,255,255,0.7)',
               backdropFilter: 'blur(24px) saturate(180%)',
@@ -1709,8 +1709,8 @@ export function Analytics() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
                   style={{
-                    background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
-                    boxShadow: '0 4px 12px rgba(139,92,246,0.3)',
+                    background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                    boxShadow: '0 4px 12px rgba(71,85,105,0.3)',
                   }}
                 >
                   <Shield className="w-5 h-5 text-white" />
@@ -1731,13 +1731,13 @@ export function Analytics() {
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all touch-manipulation',
                       currentProject?.project_manager_id
-                        ? 'bg-violet-50/80 border border-violet-200/80 text-violet-700 hover:bg-violet-100'
+                        ? 'bg-slate-50/80 border border-slate-200/80 text-slate-700 hover:bg-slate-100'
                         : 'bg-white/80 border border-slate-200/80 text-slate-500 hover:bg-slate-50 hover:border-slate-300'
                     )}
                   >
                     {currentProject?.project_manager_id ? (
                       <>
-                        <div className="w-7 h-7 rounded-full bg-violet-200/80 flex items-center justify-center text-[10px] font-bold text-violet-600 flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-slate-200/80 flex items-center justify-center text-[10px] font-bold text-slate-600 flex-shrink-0">
                           {currentProject.project_manager_id.replace(/^tg-@?/, '').slice(0, 1).toUpperCase()}
                         </div>
                         <span className="flex-1 text-left">@{currentProject.project_manager_id.replace(/^tg-@?/, '')}</span>
@@ -1800,17 +1800,17 @@ export function Analytics() {
                                 }}
                                 className={cn(
                                   'w-full text-left flex items-center gap-2 px-2.5 py-2 min-h-[40px] rounded-xl transition-colors touch-manipulation',
-                                  isSelected ? 'bg-violet-50 text-violet-700' : 'hover:bg-slate-100/70 text-slate-700'
+                                  isSelected ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100/70 text-slate-700'
                                 )}
                               >
                                 <div className={cn(
                                   'w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0',
-                                  isSelected ? 'bg-violet-200 text-violet-600' : 'bg-slate-200/80 text-slate-500'
+                                  isSelected ? 'bg-slate-300 text-slate-600' : 'bg-slate-200/80 text-slate-500'
                                 )}>
                                   {p.replace('@', '').slice(0, 1).toUpperCase()}
                                 </div>
                                 <span className="text-xs truncate">{p}</span>
-                                {isSelected && <Check className="w-3.5 h-3.5 text-violet-500 ml-auto flex-shrink-0" />}
+                                {isSelected && <Check className="w-3.5 h-3.5 text-slate-500 ml-auto flex-shrink-0" />}
                               </button>
                             );
                           })}
@@ -1823,7 +1823,7 @@ export function Analytics() {
                 <div className="flex items-center gap-3 px-3 py-2.5">
                   {currentProject?.project_manager_id ? (
                     <>
-                      <div className="w-7 h-7 rounded-full bg-violet-200/80 flex items-center justify-center text-[10px] font-bold text-violet-600 flex-shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-slate-200/80 flex items-center justify-center text-[10px] font-bold text-slate-600 flex-shrink-0">
                         {currentProject.project_manager_id.replace(/^tg-@?/, '').slice(0, 1).toUpperCase()}
                       </div>
                       <span className="text-sm font-medium text-slate-700">@{currentProject.project_manager_id.replace(/^tg-@?/, '')}</span>
@@ -2322,7 +2322,7 @@ export function Analytics() {
 
             {/* ── ROW 4: Проджект-менеджер ──────────────────────────────────── */}
             <motion.div
-              className={cn(CARD, "p-3 relative overflow-visible")}
+              className={cn(CARD, "p-3 relative overflow-visible", showPmPicker && "z-[50]")}
               style={{ gridColumn: '2 / 4' }}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
             >
@@ -2330,8 +2330,8 @@ export function Analytics() {
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center"
                     style={{
-                      background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
-                      boxShadow: '0 2px 8px rgba(139,92,246,0.3)',
+                      background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                      boxShadow: '0 2px 8px rgba(71,85,105,0.3)',
                     }}
                   >
                     <Shield className="w-4 h-4 text-white" />
@@ -2352,13 +2352,13 @@ export function Analytics() {
                       className={cn(
                         'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all touch-manipulation',
                         currentProject?.project_manager_id
-                          ? 'bg-violet-50 border border-violet-200/80 text-violet-700 hover:bg-violet-100'
+                          ? 'bg-slate-50 border border-slate-200/80 text-slate-700 hover:bg-slate-100'
                           : 'bg-white/80 border border-slate-200/80 text-slate-500 hover:bg-slate-50 hover:border-slate-300'
                       )}
                     >
                       {currentProject?.project_manager_id ? (
                         <>
-                          <div className="w-5 h-5 rounded-full bg-violet-200/80 flex items-center justify-center text-[9px] font-bold text-violet-600 flex-shrink-0">
+                          <div className="w-5 h-5 rounded-full bg-slate-200/80 flex items-center justify-center text-[9px] font-bold text-slate-600 flex-shrink-0">
                             {currentProject.project_manager_id.replace(/^tg-@?/, '').slice(0, 1).toUpperCase()}
                           </div>
                           <span>@{currentProject.project_manager_id.replace(/^tg-@?/, '')}</span>
@@ -2375,7 +2375,7 @@ export function Analytics() {
                     <div className="flex items-center gap-2 px-3 py-1.5">
                       {currentProject?.project_manager_id ? (
                         <>
-                          <div className="w-5 h-5 rounded-full bg-violet-200/80 flex items-center justify-center text-[9px] font-bold text-violet-600 flex-shrink-0">
+                          <div className="w-5 h-5 rounded-full bg-slate-200/80 flex items-center justify-center text-[9px] font-bold text-slate-600 flex-shrink-0">
                             {currentProject.project_manager_id.replace(/^tg-@?/, '').slice(0, 1).toUpperCase()}
                           </div>
                           <span className="text-xs font-medium text-slate-700">@{currentProject.project_manager_id.replace(/^tg-@?/, '')}</span>
@@ -2438,17 +2438,17 @@ export function Analytics() {
                                 }}
                                 className={cn(
                                   'w-full text-left flex items-center gap-2 px-2.5 py-2 min-h-[40px] rounded-xl transition-colors touch-manipulation',
-                                  isSelected ? 'bg-violet-50 text-violet-700' : 'hover:bg-slate-100/70 text-slate-700'
+                                  isSelected ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100/70 text-slate-700'
                                 )}
                               >
                                 <div className={cn(
                                   'w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0',
-                                  isSelected ? 'bg-violet-200 text-violet-600' : 'bg-slate-200/80 text-slate-500'
+                                  isSelected ? 'bg-slate-300 text-slate-600' : 'bg-slate-200/80 text-slate-500'
                                 )}>
                                   {p.replace('@', '').slice(0, 1).toUpperCase()}
                                 </div>
                                 <span className="text-xs truncate">{p}</span>
-                                {isSelected && <Check className="w-3.5 h-3.5 text-violet-500 ml-auto flex-shrink-0" />}
+                                {isSelected && <Check className="w-3.5 h-3.5 text-slate-500 ml-auto flex-shrink-0" />}
                               </button>
                             );
                           })}
