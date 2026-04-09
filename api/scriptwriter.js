@@ -1374,11 +1374,15 @@ async function handleFetchCarouselSlides(req, res) {
 // Шаг 2: полный AI-анализ. background_slide_index — слайд-основа фона для всех.
 
 async function handleAnalyzeCarouselFromUrl(req, res) {
-  const { instagram_url, shortcode, code: codeParam, background_slide_index = 0, regen_first_bg = false } = req.body ?? {};
+  const { instagram_url, shortcode, code: codeParam, background_slide_index = 0, regen_first_bg = false, translate = false } = req.body ?? {};
   const code = codeParam || extractShortcode(instagram_url, shortcode);
   if (!code) return res.status(400).json({ error: 'Не удалось извлечь shortcode из URL' });
 
-  console.log('analyze-carousel-from-url: code =', code, '| bg_slide =', background_slide_index, '| regen_first =', regen_first_bg);
+  console.log('analyze-carousel-from-url: code =', code, '| bg_slide =', background_slide_index, '| regen_first =', regen_first_bg, '| translate =', translate);
+
+  const prompt = translate
+    ? CAROUSEL_ANALYSIS_PROMPT + '\n\nВАЖНО: Переведи весь текст всех элементов на русский язык. Сохраняй смысл, стиль и форматирование — меняй только язык.'
+    : CAROUSEL_ANALYSIS_PROMPT;
 
   let slideUrls = [];
   try {
@@ -1408,7 +1412,7 @@ async function handleAnalyzeCarouselFromUrl(req, res) {
       if (!img) return null;
       console.log(`Analyzing slide ${idx + 1}/${slideUrls.length}`);
       try {
-        return await analyzeOneSlide(img.base64, img.mimeType, CAROUSEL_ANALYSIS_PROMPT, VISION_MODELS, { skipBgGen: true });
+        return await analyzeOneSlide(img.base64, img.mimeType, prompt, VISION_MODELS, { skipBgGen: true });
       } catch (err) {
         console.error(`Slide ${idx + 1} vision error:`, err.message);
         return null;

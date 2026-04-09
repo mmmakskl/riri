@@ -660,6 +660,7 @@ function AiUrlScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides: 
   const [slideUrls, setSlideUrls] = useState<string[]>([]);
   const [bgSlideIdx, setBgSlideIdx] = useState(0);
   const [regenFirstBg, setRegenFirstBg] = useState(false);
+  const [translateContent, setTranslateContent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -701,6 +702,7 @@ function AiUrlScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides: 
           code,
           background_slide_index: bgSlideIdx,
           regen_first_bg: regenFirstBg,
+          translate: translateContent,
         }),
       });
       const data = await res.json();
@@ -841,6 +843,21 @@ function AiUrlScreen({ onBack, onDone }: { onBack: () => void; onDone: (slides: 
                 </button>
               </GlassCard>
             )}
+
+            <GlassCard className="p-4">
+              <button className="w-full flex items-center gap-3 text-left" onClick={() => setTranslateContent(!translateContent)}>
+                <div
+                  className={cn('w-5 h-5 rounded-md flex-shrink-0 flex items-center justify-center border-2 transition-all', translateContent ? 'border-[#833ab4]' : 'border-[#1a1a18]/15')}
+                  style={translateContent ? { background: IG_GRADIENT } : {}}
+                >
+                  {translateContent && <span className="text-white text-[10px] font-bold">✓</span>}
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-[#1a1a18]">Перевести текст на русский</p>
+                  <p className="text-[11px] text-[#1a1a18]/45 mt-0.5">RiRi переведёт все тексты при воссоздании</p>
+                </div>
+              </button>
+            </GlassCard>
 
             {error && <p className="text-[13px] text-red-500 text-center">{error}</p>}
 
