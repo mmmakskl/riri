@@ -1552,7 +1552,7 @@ export function Analytics() {
             </div>
           </div>
           {viewLayout === 'grid' ? (
-            <motion.div className="grid grid-cols-3 gap-2"
+            <motion.div className="grid grid-cols-4 gap-2"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
               {sortedReels.map(reel => (
                 <ReelCard key={reel.id} reel={reel} onClick={() => setSelectedReel(reel)} layout="grid" avgBottom3Views={avgBottom3Views} />
