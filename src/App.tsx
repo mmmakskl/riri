@@ -7,6 +7,7 @@ import { RiriChatPage } from './components/RiriChatPage';
 import { OnboardingModal } from './components/OnboardingModal';
 import { History } from './components/History';
 import { AIScriptwriter } from './components/AIScriptwriter';
+import { RadarPage } from './components/RadarPage';
 import { ProfilePage } from './components/ProfilePage';
 import { Analytics } from './components/Analytics';
 import { UsageStats } from './components/UsageStats';
@@ -37,7 +38,7 @@ import { cn } from './utils/cn';
 import { Toaster, toast } from 'sonner';
 
 
-type ViewMode = 'dashboard' | 'workspace' | 'canvas' | 'history' | 'profile' | 'scriptwriter' | 'analytics' | 'usage' | 'carousel-editor';
+type ViewMode = 'dashboard' | 'workspace' | 'canvas' | 'history' | 'profile' | 'scriptwriter' | 'analytics' | 'usage' | 'carousel-editor' | 'radar';
 type SearchTab = 'search' | 'link' | 'radar';
 
 // Цвета для проектов
@@ -383,7 +384,7 @@ function AppContent() {
     if (typeof window === 'undefined') return 'dashboard';
     try {
       const v = localStorage.getItem('app_view_mode');
-      if (v === 'dashboard' || v === 'workspace' || v === 'canvas' || v === 'history' || v === 'profile' || v === 'scriptwriter' || v === 'analytics') return v;
+      if (v === 'dashboard' || v === 'workspace' || v === 'canvas' || v === 'history' || v === 'profile' || v === 'scriptwriter' || v === 'analytics' || v === 'radar') return v;
     } catch { /* ignore */ }
     return 'dashboard';
   });
@@ -647,7 +648,8 @@ function AppContent() {
                 <SidebarLink
                   icon={<Radar className="w-4 h-4" strokeWidth={2.5} />}
                   label="Радар"
-                  onClick={() => { setSearchTab('radar'); setIsSearchOpen(true); }}
+                  onClick={() => setViewMode('radar')}
+                  isActive={viewMode === 'radar'}
                 />
                 {!HIDE_SEARCH_BY_WORD && (
                   <SidebarLink
@@ -808,6 +810,7 @@ function AppContent() {
             {viewMode === 'dashboard' && <RiriChatPage />}
             {viewMode === 'workspace' && <Workspace />}
             {viewMode === 'scriptwriter' && <AIScriptwriter />}
+            {viewMode === 'radar' && <RadarPage />}
             {viewMode === 'analytics' && <Analytics />}
             {viewMode === 'history' && <History />}
             {viewMode === 'profile' && <ProfilePage />}
