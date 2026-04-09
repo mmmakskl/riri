@@ -8,7 +8,7 @@ import {
   ArrowLeft, PenLine, LayoutTemplate, Type, Image as ImageIcon,
   Bold, Italic, AlignLeft, AlignCenter, AlignRight,
   Loader2, Camera, Sparkles, Box, Copy, Minus, Circle as CircleIcon,
-  Square, RefreshCw, BookmarkPlus, FolderOpen, Link,
+  Square, RefreshCw, BookmarkPlus, FolderOpen, Link, Clipboard,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../../utils/cn';
@@ -893,20 +893,22 @@ function FloatBtn({
       onClick={onClick}
       whileTap={{ scale: 0.95 }}
       title={label}
-      className="flex items-center gap-2 px-3 py-2.5 rounded-2xl touch-manipulation flex-shrink-0 transition-colors w-full"
+      className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl touch-manipulation flex-shrink-0 transition-colors"
       style={{
         background: active ? '#1a1a18' : danger ? 'rgba(239,68,68,0.08)' : '#ffffff',
         border: '1px solid rgba(0,0,0,0.07)',
         boxShadow: '0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)',
         color: active ? '#ffffff' : danger ? '#ef4444' : '#1a1a18',
-        minWidth: 104,
+        minWidth: 60,
       }}
     >
-      <span className="flex-shrink-0">{icon}</span>
-      <span style={{ fontSize: 12, fontWeight: 500, lineHeight: 1, flex: 1, textAlign: 'left' }}>{label}</span>
-      {hasPanel && (
-        <ChevronDown size={11} style={{ opacity: active ? 0.6 : 0.3, flexShrink: 0 }} />
-      )}
+      <span className="flex-shrink-0 flex items-center gap-0.5">
+        {icon}
+        {hasPanel && (
+          <ChevronDown size={10} style={{ opacity: active ? 0.6 : 0.3 }} />
+        )}
+      </span>
+      <span style={{ fontSize: 10, fontWeight: 500, lineHeight: 1, whiteSpace: 'nowrap' }}>{label}</span>
     </motion.button>
   );
 }
@@ -1378,11 +1380,11 @@ function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage, on
           )}
         </div>
 
-        {/* Canvas + floating UI wrapper */}
-        <div className="flex-1 relative overflow-hidden">
+        {/* Canvas + toolbar wrapper */}
+        <div className="flex-1 flex flex-col overflow-hidden">
 
           {/* Scrollable canvas area */}
-          <div className="absolute inset-0 overflow-y-auto flex flex-col items-center justify-start py-4 px-4 gap-4 custom-scrollbar-light">
+          <div className="flex-1 overflow-y-auto flex flex-col items-center justify-start py-4 px-4 gap-4 custom-scrollbar-light">
 
             {/* Mobile slide strip */}
             <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 w-full max-w-sm">
@@ -1453,120 +1455,20 @@ function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage, on
             )}
           </div>
 
-          {/* ── Floating toolbar buttons (right side) ── */}
-          <div className="absolute right-3 top-4 flex flex-col gap-1.5 z-30" style={{ width: 112 }}>
-
-            {/* Add */}
-            <FloatBtn
-              icon={<Plus size={18} />}
-              label="Добавить"
-              active={activePanel === 'add'}
-              hasPanel
-              onClick={() => setActivePanel((p) => p === 'add' ? null : 'add')}
-            />
-
-            {/* Background */}
-            <FloatBtn
-              icon={
-                <div
-                  className="w-[18px] h-[18px] rounded-full border border-black/10 flex-shrink-0"
-                  style={
-                    slide.background.type === 'solid' ? { backgroundColor: slide.background.color }
-                    : slide.background.type === 'gradient' ? { background: `linear-gradient(${slide.background.direction}, ${slide.background.from}, ${slide.background.to})` }
-                    : { background: 'linear-gradient(135deg, #e2e8f0, #94a3b8)' }
-                  }
-                />
-              }
-              label="Фон"
-              active={activePanel === 'bg'}
-              hasPanel
-              onClick={() => setActivePanel((p) => p === 'bg' ? null : 'bg')}
-            />
-
-            {/* Shape — opens picker panel */}
-            <FloatBtn
-              icon={<Box size={18} />}
-              label="Фигура"
-              active={activePanel === 'shape-picker'}
-              hasPanel
-              onClick={() => setActivePanel((p) => p === 'shape-picker' ? null : 'shape-picker')}
-            />
-
-            {/* Text props */}
-            {selectedEl?.type === 'text' && (
-              <FloatBtn
-                icon={<Type size={18} />}
-                label="Текст"
-                active={activePanel === 'text'}
-                hasPanel
-                onClick={() => setActivePanel((p) => p === 'text' ? null : 'text')}
-              />
-            )}
-
-            {/* Image props */}
-            {selectedEl?.type === 'image' && (
-              <FloatBtn
-                icon={<ImageIcon size={18} />}
-                label="Фото"
-                active={activePanel === 'image'}
-                hasPanel
-                onClick={() => setActivePanel((p) => p === 'image' ? null : 'image')}
-              />
-            )}
-
-            {/* Shape props */}
-            {selectedEl?.type === 'shape' && (
-              <FloatBtn
-                icon={<Box size={18} />}
-                label="Стиль"
-                active={activePanel === 'shape'}
-                hasPanel
-                onClick={() => setActivePanel((p) => p === 'shape' ? null : 'shape')}
-              />
-            )}
-
-            {/* Copy to all slides */}
-            {selectedEl && slides.length > 1 && (
-              <FloatBtn
-                icon={<Copy size={16} />}
-                label="На все слайды"
-                onClick={() => {
-                  const elJson = JSON.stringify(selectedEl);
-                  setSlides((prev) => prev.map((s, i) => {
-                    if (i === currentIdx) return s;
-                    const clone = { ...JSON.parse(elJson), id: `${selectedEl.id}-copy-${i}` };
-                    return { ...s, elements: [...s.elements, clone] };
-                  }));
-                  toast.success(`Скопировано на ${slides.length - 1} слайд${slides.length - 1 > 1 ? 'а' : ''}`);
-                }}
-              />
-            )}
-
-            {/* Delete — direct action */}
-            {selectedEl && (
-              <FloatBtn
-                icon={<Trash2 size={16} />}
-                label="Удалить"
-                onClick={() => { onDeleteElement(selectedEl.id); }}
-                danger
-              />
-            )}
-          </div>
-
-          {/* ── Floating properties panel ── */}
+          {/* ── Properties panel (between canvas and toolbar, no overlap) ── */}
           <AnimatePresence>
             {activePanel && (
               <motion.div
                 key={activePanel}
-                initial={{ opacity: 0, x: 10, scale: 0.96 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 10, scale: 0.96 }}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 16 }}
                 transition={{ duration: 0.16, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="absolute right-[124px] top-4 z-20 w-52 max-h-[calc(100%-32px)] overflow-y-auto rounded-[20px] custom-scrollbar-light"
+                className="overflow-y-auto max-h-56 custom-scrollbar-light flex-shrink-0"
                 style={{
                   background: '#ffffff',
-                  border: '1px solid rgba(0,0,0,0.07)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)',
+                  borderTop: '1px solid rgba(0,0,0,0.08)',
+                  boxShadow: '0 -4px 16px rgba(0,0,0,0.06)',
                 }}
               >
                 <div className="p-3.5">
@@ -1589,6 +1491,120 @@ function FreeEditor({ onBack, initialSlides, initialDraftId, aiOriginalImage, on
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* ── Bottom toolbar (horizontal) ── */}
+          <div
+            className="flex-shrink-0 flex flex-row gap-2 px-3 py-2.5 overflow-x-auto"
+            style={{ borderTop: '1px solid rgba(0,0,0,0.07)', background: '#f9f9f8' }}
+          >
+            {/* Add */}
+            <FloatBtn
+              icon={<Plus size={16} />}
+              label="Добавить"
+              active={activePanel === 'add'}
+              hasPanel
+              onClick={() => setActivePanel((p) => p === 'add' ? null : 'add')}
+            />
+
+            {/* Background */}
+            <FloatBtn
+              icon={
+                <div
+                  className="w-4 h-4 rounded-full border border-black/10 flex-shrink-0"
+                  style={
+                    slide.background.type === 'solid' ? { backgroundColor: slide.background.color }
+                    : slide.background.type === 'gradient' ? { background: `linear-gradient(${slide.background.direction}, ${slide.background.from}, ${slide.background.to})` }
+                    : { background: 'linear-gradient(135deg, #e2e8f0, #94a3b8)' }
+                  }
+                />
+              }
+              label="Фон"
+              active={activePanel === 'bg'}
+              hasPanel
+              onClick={() => setActivePanel((p) => p === 'bg' ? null : 'bg')}
+            />
+
+            {/* Shape picker */}
+            <FloatBtn
+              icon={<Box size={16} />}
+              label="Фигура"
+              active={activePanel === 'shape-picker'}
+              hasPanel
+              onClick={() => setActivePanel((p) => p === 'shape-picker' ? null : 'shape-picker')}
+            />
+
+            {/* Text props */}
+            {selectedEl?.type === 'text' && (
+              <FloatBtn
+                icon={<Type size={16} />}
+                label="Текст"
+                active={activePanel === 'text'}
+                hasPanel
+                onClick={() => setActivePanel((p) => p === 'text' ? null : 'text')}
+              />
+            )}
+
+            {/* Image props */}
+            {selectedEl?.type === 'image' && (
+              <FloatBtn
+                icon={<ImageIcon size={16} />}
+                label="Фото"
+                active={activePanel === 'image'}
+                hasPanel
+                onClick={() => setActivePanel((p) => p === 'image' ? null : 'image')}
+              />
+            )}
+
+            {/* Shape props */}
+            {selectedEl?.type === 'shape' && (
+              <FloatBtn
+                icon={<Box size={16} />}
+                label="Стиль"
+                active={activePanel === 'shape'}
+                hasPanel
+                onClick={() => setActivePanel((p) => p === 'shape' ? null : 'shape')}
+              />
+            )}
+
+            {/* Copy text */}
+            {selectedEl?.type === 'text' && (
+              <FloatBtn
+                icon={<Clipboard size={16} />}
+                label="Копировать"
+                onClick={() => {
+                  const text = (selectedEl as TextElement).text;
+                  navigator.clipboard.writeText(text).then(() => toast.success('Текст скопирован'));
+                }}
+              />
+            )}
+
+            {/* Copy to all slides */}
+            {selectedEl && slides.length > 1 && (
+              <FloatBtn
+                icon={<Copy size={16} />}
+                label="На все слайды"
+                onClick={() => {
+                  const elJson = JSON.stringify(selectedEl);
+                  setSlides((prev) => prev.map((s, i) => {
+                    if (i === currentIdx) return s;
+                    const clone = { ...JSON.parse(elJson), id: `${selectedEl.id}-copy-${i}` };
+                    return { ...s, elements: [...s.elements, clone] };
+                  }));
+                  toast.success(`Скопировано на ${slides.length - 1} слайд${slides.length - 1 > 1 ? 'а' : ''}`);
+                }}
+              />
+            )}
+
+            {/* Delete */}
+            {selectedEl && (
+              <FloatBtn
+                icon={<Trash2 size={16} />}
+                label="Удалить"
+                onClick={() => { onDeleteElement(selectedEl.id); }}
+                danger
+              />
+            )}
+          </div>
         </div>
       </div>
 
