@@ -1507,7 +1507,9 @@ async function handleAnalyzeCarouselFromUrl(req, res) {
           temperature: 0.1,
           max_tokens: 2000,
         });
-        const translated = parseJsonResponse(translateRaw);
+        // parseJsonResponse ищет только объекты {}, для массива парсим напрямую
+        const arrayMatch = translateRaw.match(/\[[\s\S]*\]/);
+        const translated = arrayMatch ? JSON.parse(arrayMatch[0]) : null;
         if (Array.isArray(translated) && translated.length === allTexts.length) {
           let idx = 0;
           for (const slide of slides) {
