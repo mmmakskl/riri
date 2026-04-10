@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const { username, count, userId, projectId, source } = req.body;
   if (!username) return res.status(400).json({ error: 'username is required' });
 
-  const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'ff21c60e3dmsh5f27d005cc9811dp1d106ejsn8dc341d3ceb2';
+  const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '959a088626msh74020d3fb11ad19p1e067bjsnb273d9fac830';
   const cleanUsername = username.replace(/^@/, '').trim().toLowerCase();
 
   // Helper: parse items from API response

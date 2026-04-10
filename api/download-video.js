@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'url is required' });
   }
 
-  const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'ff21c60e3dmsh5f27d005cc9811dp1d106ejsn8dc341d3ceb2';
+  const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '959a088626msh74020d3fb11ad19p1e067bjsnb273d9fac830';
   const RAPIDAPI_HOST = 'instagram120.p.rapidapi.com';
 
   try {

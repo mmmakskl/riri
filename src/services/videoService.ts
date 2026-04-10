@@ -1,5 +1,5 @@
 const RAPIDAPI_HOST = 'instagram-scraper-20251.p.rapidapi.com'; // Новый API
-const RAPIDAPI_KEY = '60b367f230mshd3ca48b7e1fa21cp18f206jsn57b97472bcca'; // Новый ключ
+const RAPIDAPI_KEY = '959a088626msh74020d3fb11ad19p1e067bjsnb273d9fac830'; // Новый ключ
 const RAPIDAPI_HOST_OLD = 'instagram-looter2.p.rapidapi.com'; // Fallback API
 
 // На production используем Vercel serverless прокси, локально — Vite прокси
