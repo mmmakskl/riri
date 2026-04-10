@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  ChevronLeft, Play, Eye, Heart, MessageCircle, Calendar, 
+import {
+  ChevronLeft, Play, Eye, Heart, MessageCircle, Calendar,
   Sparkles, FileText, Copy, ExternalLink, Loader2, Check,
-  Languages, ChevronDown, Mic, Save, RefreshCw, Plus, Trash2, Wand2, BookOpen, Pencil, Radar, X, Link2, Film, PenLine, Send
+  Languages, ChevronDown, Mic, Save, RefreshCw, Plus, Trash2, Wand2, BookOpen, Pencil, Radar, X, Link2, Film, PenLine, Send, Zap, TrendingUp, ArrowDownUp
 } from 'lucide-react';
 import { AnimatedCopyIcon } from './ui/animated-state-icons';
 import { cn } from '../utils/cn';
@@ -70,6 +70,11 @@ interface VideoData {
   responsible_assigned_at?: string;
   responsible_timer_done?: boolean;
   responsible_timer_done_at?: string;
+  // ИИ-хуки (сохранённые в БД)
+  ai_hooks?: Array<{
+    original: string; adapted: string; explanation: string;
+    views: string; niche: string; url: string | null; owner_username: string | null;
+  }>;
 }
 
 interface VideoDetailPageProps {
@@ -256,13 +261,15 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
   const [isRenamingStyle, setIsRenamingStyle] = useState(false);
   const [renamingStyleName, setRenamingStyleName] = useState('');
   const [showCopyStylesModal, setShowCopyStylesModal] = useState(false);
-  const [showAiHookModal, setShowAiHookModal] = useState(false);
+  const [showAiHooksPanel, setShowAiHooksPanel] = useState(false);
   const [isGeneratingAiHook, setIsGeneratingAiHook] = useState(false);
   const [aiHookResults, setAiHookResults] = useState<Array<{
     original: string; adapted: string; explanation: string;
     views: string; niche: string; url: string | null; owner_username: string | null;
-  }>>([]);
+  }>>(() => video.ai_hooks || []);
   const [copiedAiHookIdx, setCopiedAiHookIdx] = useState<number | null>(null);
+  const [aiHookSortBy, setAiHookSortBy] = useState<'relevance' | 'views'>('relevance');
+  const [aiHookLangFilter, setAiHookLangFilter] = useState<'all' | 'ru' | 'en'>('all');
 
   const projectStyles = currentProject?.projectStyles || [];
   const currentPromptStyle = editingStyle || (projectStyles.length === 1 ? projectStyles[0] : null);
@@ -936,8 +943,20 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
     const cost = getTokenCost('ai_hook');
     if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
     setAiHookResults([]);
-    setShowAiHookModal(true);
+    setShowAiHooksPanel(true);
     setIsGeneratingAiHook(true);
+
+    const funMessages = [
+      '🔍 Роюсь среди тысяч вирусных видео...',
+      '✨ Происходит магия — подбираю хуки, от которых невозможно пролистать',
+      '🧠 ИИ думает. Очень серьёзно думает.',
+      '🚀 Ищу лучшие хуки во вселенной (ну, почти)',
+    ];
+    toast(funMessages[Math.floor(Math.random() * funMessages.length)], {
+      description: 'Семантический поиск + адаптация под ваш сценарий',
+      duration: 6000,
+    });
+
     try {
       const res = await fetch('/api/scriptwriter', {
         method: 'POST',
@@ -953,13 +972,14 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
       if (data.success && data.hooks?.length) {
         await deduct(cost, { action: 'ai_hook', section: 'lenta', label: 'ИИ-хук' });
         setAiHookResults(data.hooks);
+        // Сохраняем в БД
+        await supabase.from('saved_videos').update({ ai_hooks: data.hooks }).eq('id', video.id);
+        toast.success(`Найдено ${data.hooks.length} хуков — выбирайте лучший 🎯`);
       } else {
         toast.error(data.error || 'Хуки не найдены');
-        setShowAiHookModal(false);
       }
     } catch {
       toast.error('Ошибка генерации хуков');
-      setShowAiHookModal(false);
     } finally {
       setIsGeneratingAiHook(false);
     }
@@ -1239,6 +1259,19 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
   };
 
   const thumbnailUrl = proxyImageUrl(video.preview_url, PLACEHOLDER_400x600);
+
+  // ИИ-хуки: сортировка + фильтр по языку
+  const parseHookViews = (v: string) => {
+    if (!v) return 0;
+    const n = parseFloat(v.replace(',', '.'));
+    if (v.includes('М') || v.includes('M')) return n * 1_000_000;
+    if (v.includes('К') || v.includes('K')) return n * 1_000;
+    return n || 0;
+  };
+  const detectHookLang = (text: string) => (/[а-яёА-ЯЁ]/.test(text) ? 'ru' : 'en');
+  const sortedFilteredHooks = aiHookResults
+    .filter(h => aiHookLangFilter === 'all' || detectHookLang(h.original) === aiHookLangFilter)
+    .sort((a, b) => aiHookSortBy === 'views' ? parseHookViews(b.views) - parseHookViews(a.views) : 0);
 
   return (
     <div className="h-full overflow-hidden flex flex-col bg-[#f5f6f8]">
@@ -2110,17 +2143,32 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
                   )}
                 </div>
                 <button
-                  onClick={handleGenerateAiHook}
+                  onClick={() => {
+                    if (!isGeneratingAiHook && aiHookResults.length > 0) {
+                      setShowAiHooksPanel(v => !v);
+                    } else {
+                      handleGenerateAiHook();
+                    }
+                  }}
                   disabled={isGeneratingAiHook || isGeneratingScript || (!transcript?.trim() && !script?.trim())}
                   className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition-colors',
-                    (transcript?.trim() || script?.trim()) ? 'bg-violet-600 hover:bg-violet-700 disabled:opacity-50' : 'bg-violet-400/70 cursor-not-allowed'
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                    (transcript?.trim() || script?.trim())
+                      ? 'bg-slate-700 hover:bg-slate-800 text-white disabled:opacity-50'
+                      : 'bg-slate-300 cursor-not-allowed text-slate-500'
                   )}
                   title="Найти топ-10 вирусных хуков из базы и адаптировать под ваш сценарий"
                 >
-                  {isGeneratingAiHook ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  ИИ-хук
-                  <TokenBadge tokens={getTokenCost('ai_hook')} variant="dark" />
+                  {isGeneratingAiHook ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5" />
+                  )}
+                  {isGeneratingAiHook ? 'Ищем...' : 'ИИ-хуки'}
+                  {!isGeneratingAiHook && <TokenBadge tokens={getTokenCost('ai_hook')} variant="dark" />}
+                  {aiHookResults.length > 0 && !isGeneratingAiHook && (
+                    <ChevronDown className={cn('w-3 h-3 transition-transform duration-200', showAiHooksPanel && 'rotate-180')} />
+                  )}
                 </button>
                 {(projectStyles.length > 0 || currentProject?.stylePrompt) && (
                   <div className="relative" ref={stylePickerRef}>
@@ -2265,7 +2313,127 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
                 )}
               </div>
             </div>
-            
+
+            {/* ИИ-хуки — inline expandable панель */}
+            {showAiHooksPanel && (
+              <div className="border-b border-slate-100 overflow-hidden">
+                {isGeneratingAiHook ? (
+                  <div className="flex items-center gap-3 px-4 py-5">
+                    <div className="relative flex-shrink-0 w-9 h-9">
+                      <div className="w-9 h-9 rounded-full border-2 border-slate-200 border-t-slate-600 animate-spin" />
+                      <Zap className="w-4 h-4 text-slate-500 absolute inset-0 m-auto" />
+                    </div>
+                    <div>
+                      <p className="text-slate-700 text-sm font-medium">Анализируем вирусные хуки...</p>
+                      <p className="text-slate-400 text-xs mt-0.5">Семантический поиск + адаптация под ваш сценарий</p>
+                    </div>
+                  </div>
+                ) : sortedFilteredHooks.length > 0 ? (
+                  <>
+                    {/* Контролы: счётчик + сортировка + фильтр языка */}
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-100 flex-wrap gap-2">
+                      <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" />
+                        {aiHookResults.length} хуков
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {/* Фильтр языка */}
+                        <div className="flex items-center gap-0.5 bg-slate-200/70 rounded-md p-0.5">
+                          {(['all', 'ru', 'en'] as const).map(lang => (
+                            <button
+                              key={lang}
+                              onClick={() => setAiHookLangFilter(lang)}
+                              className={cn(
+                                'px-2 py-0.5 rounded text-[10px] font-medium transition-colors',
+                                aiHookLangFilter === lang ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                              )}
+                            >
+                              {lang === 'all' ? 'Все' : lang.toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Сортировка */}
+                        <button
+                          onClick={() => setAiHookSortBy(v => v === 'relevance' ? 'views' : 'relevance')}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-slate-500 hover:bg-slate-200 transition-colors"
+                          title={aiHookSortBy === 'relevance' ? 'Сейчас: по релевантности' : 'Сейчас: по просмотрам'}
+                        >
+                          <ArrowDownUp className="w-3 h-3" />
+                          {aiHookSortBy === 'relevance' ? 'По релевантности' : 'По просмотрам'}
+                        </button>
+                      </div>
+                    </div>
+                    {/* Список хуков */}
+                    <div className="divide-y divide-slate-100 max-h-[460px] overflow-y-auto">
+                      {sortedFilteredHooks.map((hook, idx) => {
+                        const lang = detectHookLang(hook.original);
+                        return (
+                          <div key={idx} className="p-4 hover:bg-slate-50/60 transition-colors">
+                            <div className="flex items-start gap-3">
+                              {/* Номер */}
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-400 mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                {/* Бейджи */}
+                                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                    <Eye className="w-2.5 h-2.5" />{hook.views}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{hook.niche}</span>
+                                  <span className={cn(
+                                    'text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold tracking-wide',
+                                    lang === 'ru' ? 'bg-blue-50 text-blue-500' : 'bg-amber-50 text-amber-600'
+                                  )}>
+                                    {lang.toUpperCase()}
+                                  </span>
+                                </div>
+                                {/* Адаптированный хук */}
+                                <p className="text-slate-800 text-sm leading-relaxed font-medium">{hook.adapted}</p>
+                                {/* Объяснение */}
+                                <p className="mt-2 text-[11px] text-slate-400 leading-relaxed italic">{hook.explanation}</p>
+                                {/* Оригинал */}
+                                <div className="mt-2.5 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                                  <p className="text-[9px] uppercase tracking-wider text-slate-400 mb-1 font-semibold">Оригинал</p>
+                                  <p className="text-[11px] text-slate-500 leading-relaxed">{hook.original}</p>
+                                  {hook.url && (
+                                    <a href={hook.url} target="_blank" rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-slate-400 hover:text-slate-600 transition-colors">
+                                      <ExternalLink className="w-2.5 h-2.5" />
+                                      {hook.owner_username ? `@${hook.owner_username}` : 'Видео'}
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Копировать */}
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(hook.adapted);
+                                  setCopiedAiHookIdx(idx);
+                                  setTimeout(() => setCopiedAiHookIdx(null), 2000);
+                                }}
+                                className="flex-shrink-0 p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors mt-0.5"
+                                title="Скопировать адаптированный хук"
+                              >
+                                {copiedAiHookIdx === idx
+                                  ? <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                  : <Copy className="w-3.5 h-3.5" />
+                                }
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="px-4 py-5 text-center text-sm text-slate-400">
+                    Нет хуков по выбранному фильтру
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Script content - всегда textarea */}
             <div className="flex-1 md:overflow-hidden p-4">
               <textarea
@@ -2294,89 +2462,6 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
         sourceProject={currentProject}
       />
 
-      {/* ИИ-хук модал */}
-      {showAiHookModal && createPortal(
-        <div className="fixed inset-0 z-[35000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm" onClick={() => !isGeneratingAiHook && setShowAiHookModal(false)}>
-          <div className="relative w-full sm:max-w-2xl max-h-[90dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-violet-600" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-800">ИИ-хук</h2>
-                  <p className="text-[11px] text-slate-400">Топ-10 хуков из вирусных видео, адаптированных под ваш сценарий</p>
-                </div>
-              </div>
-              {!isGeneratingAiHook && (
-                <button onClick={() => setShowAiHookModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {isGeneratingAiHook ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-4">
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full border-2 border-violet-200 border-t-violet-500 animate-spin" />
-                    <Sparkles className="w-5 h-5 text-violet-500 absolute inset-0 m-auto" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-slate-700 text-sm font-medium">Ищем вирусные хуки...</p>
-                    <p className="text-slate-400 text-xs mt-1">Анализируем базу и адаптируем под ваш сценарий</p>
-                  </div>
-                </div>
-              ) : aiHookResults.map((hook, idx) => (
-                <div key={idx} className="rounded-xl border border-slate-200 overflow-hidden">
-                  {/* Адаптированный хук — главный */}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">#{idx + 1}</span>
-                          <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{hook.views} просм.</span>
-                          <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{hook.niche}</span>
-                        </div>
-                        <p className="text-slate-800 text-sm leading-relaxed font-medium">{hook.adapted}</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(hook.adapted);
-                          setCopiedAiHookIdx(idx);
-                          setTimeout(() => setCopiedAiHookIdx(null), 2000);
-                        }}
-                        className="flex-shrink-0 p-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-600 transition-colors"
-                      >
-                        {copiedAiHookIdx === idx ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    {/* Объяснение */}
-                    <p className="mt-3 text-[12px] text-slate-500 leading-relaxed border-t border-slate-100 pt-3">{hook.explanation}</p>
-                  </div>
-                  {/* Оригинал + ссылка */}
-                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Оригинал</p>
-                      <p className="text-[12px] text-slate-500 leading-relaxed">{hook.original}</p>
-                    </div>
-                    {hook.url && (
-                      <a href={hook.url} target="_blank" rel="noopener noreferrer"
-                        className="flex-shrink-0 flex items-center gap-1 text-[11px] text-violet-500 hover:text-violet-700 transition-colors">
-                        <ExternalLink className="w-3 h-3" />
-                        {hook.owner_username ? `@${hook.owner_username}` : 'Видео'}
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
       <StyleTrainModal
         open={showStyleTrainModal}
         onClose={() => {
