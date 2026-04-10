@@ -139,6 +139,10 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
     responsible_assigned_at?: string;
     responsible_timer_done?: boolean;
     responsible_timer_done_at?: string;
+    ai_hooks?: Array<{
+      original: string; adapted: string; explanation: string;
+      views: string; niche: string; url: string | null; owner_username: string | null;
+    }>;
   } => {
     const links = Array.isArray(video.links) && video.links.length > 0
       ? video.links.map((row: any) => ({
@@ -196,6 +200,8 @@ export function useInboxVideos(options?: UseInboxVideosOptions) {
       responsible_assigned_at: video.responsible_assigned_at || undefined,
       responsible_timer_done: video.responsible_timer_done || false,
       responsible_timer_done_at: video.responsible_timer_done_at || undefined,
+      // ИИ-хуки
+      ai_hooks: (video as any).ai_hooks || undefined,
     };
   }, []);
 
