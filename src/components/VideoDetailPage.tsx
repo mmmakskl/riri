@@ -947,10 +947,10 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
     setIsGeneratingAiHook(true);
 
     const funMessages = [
-      '🔍 Роюсь среди тысяч вирусных видео...',
-      '✨ Происходит магия — подбираю хуки, от которых невозможно пролистать',
-      '🧠 ИИ думает. Очень серьёзно думает.',
-      '🚀 Ищу лучшие хуки во вселенной (ну, почти)',
+      'Роюсь среди тысяч вирусных видео...',
+      'Происходит магия — подбираю хуки, от которых невозможно пролистать',
+      'RiRi думает. Очень серьёзно думает.',
+      'Ищу лучшие хуки во вселенной (ну, почти)',
     ];
     toast(funMessages[Math.floor(Math.random() * funMessages.length)], {
       description: 'Семантический поиск + адаптация под ваш сценарий',
@@ -974,7 +974,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
         setAiHookResults(data.hooks);
         // Сохраняем в БД
         await supabase.from('saved_videos').update({ ai_hooks: data.hooks }).eq('id', video.id);
-        toast.success(`Найдено ${data.hooks.length} хуков — выбирайте лучший 🎯`);
+        toast.success(`Найдено ${data.hooks.length} хуков — выбирайте лучший`);
       } else {
         toast.error(data.error || 'Хуки не найдены');
       }
