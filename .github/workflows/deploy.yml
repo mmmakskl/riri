@@ -37,7 +37,7 @@ jobs:
 
       - name: Deploy backend to CapRover
         run: |
-          curl -X POST http://95.182.100.126:3000/api/v2/user/apps/appData/backend \
+          curl -X POST http://95.182.100.126:3000/api/v2/user/apps/appData/riri-be-dev \
             -H "x-captain-auth: ${{ steps.auth.outputs.token }}" \
             -F "sourceFile=@/tmp/backend.tar.gz"
 
@@ -78,7 +78,7 @@ jobs:
 
       - name: Create captain-definition for frontend
         run: |
-          echo '{"schemaVersion":2,"dockerfilePath":"./Dockerfile.frontend"}' > captain-definition
+          echo '{"schemaVersion":2,"dockerfilePath":"./Dockerfile.frontend"}' > captain-definition-frontend
 
       - name: Package frontend (with built dist/)
         run: |
@@ -86,10 +86,10 @@ jobs:
             dist/ \
             nginx.conf \
             Dockerfile.frontend \
-            captain-definition
+            captain-definition-frontend
 
       - name: Deploy frontend to CapRover
         run: |
-          curl -X POST http://95.182.100.126:3000/api/v2/user/apps/appData/frontend \
+          curl -X POST http://95.182.100.126:3000/api/v2/user/apps/appData/riri-fe-dev \
             -H "x-captain-auth: ${{ steps.auth.outputs.token }}" \
             -F "sourceFile=@/tmp/frontend.tar.gz"
