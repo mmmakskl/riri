@@ -945,7 +945,6 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
     const cost = getTokenCost('ai_hook');
     if (!canAfford(cost)) { toast.error('Недостаточно коинов'); return; }
     setAiHookResults([]);
-    setShowAiHooksPanel(true);
     setIsGeneratingAiHook(true);
 
     const funMessages = [
@@ -974,6 +973,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
       if (data.success && data.hooks?.length) {
         await deduct(cost, { action: 'ai_hook', section: 'lenta', label: 'ИИ-хук' });
         setAiHookResults(data.hooks);
+        setShowAiHooksPanel(true);
         // Сохраняем в БД
         await supabase.from('saved_videos').update({ ai_hooks: data.hooks }).eq('id', video.id);
         toast.success(`Найдено ${data.hooks.length} хуков — выбирайте лучший`);
@@ -2144,6 +2144,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
                     </span>
                   )}
                 </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   ref={aiHooksBtnRef}
                   onClick={() => {
@@ -2164,7 +2165,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
                   }}
                   disabled={isGeneratingScript || (!transcript?.trim() && !script?.trim())}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                     (transcript?.trim() || script?.trim())
                       ? 'bg-slate-700 hover:bg-slate-800 text-white disabled:opacity-50'
                       : 'bg-slate-300 cursor-not-allowed text-slate-500'
@@ -2176,11 +2177,13 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
                   ) : (
                     <Zap className="w-3.5 h-3.5" />
                   )}
-                  {isGeneratingAiHook ? 'Ищем...' : 'ИИ-хуки'}
-                  {!isGeneratingAiHook && <TokenBadge tokens={getTokenCost('ai_hook')} variant="dark" />}
-                  {aiHookResults.length > 0 && !isGeneratingAiHook && (
-                    <ChevronDown className={cn('w-3 h-3 transition-transform duration-200', showAiHooksPanel && 'rotate-180')} />
-                  )}
+                  ИИ-хуки
+                  <TokenBadge tokens={getTokenCost('ai_hook')} variant="dark" />
+                  <ChevronDown className={cn(
+                    'w-3 h-3 transition-transform duration-200',
+                    aiHookResults.length > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                    showAiHooksPanel && 'rotate-180'
+                  )} />
                 </button>
                 {(projectStyles.length > 0 || currentProject?.stylePrompt) && (
                   <div className="relative" ref={stylePickerRef}>
@@ -2267,6 +2270,7 @@ export function VideoDetailPage({ video, onBack, onRefreshData, autoTranscribe }
                     )}
                   </div>
                 )}
+                </div>{/* /flex группа кнопок */}
               </div>
               {/* Ряд 2: Обучить подчерк, Сохранить, Копировать, Что не так сделал? */}
               <div className="flex flex-wrap items-center gap-2">

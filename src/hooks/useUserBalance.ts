@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from './useAuth';
 
-const DEFAULT_BALANCE = 20;
+const DEFAULT_BALANCE = 0;
 const DEDUCT_ANIMATION_MS = 1800;
 
 export function useUserBalance() {
@@ -46,14 +46,14 @@ export function useUserBalance() {
 
       if (error) {
         console.error('useUserBalance fetch:', error);
-        setBalance(DEFAULT_BALANCE);
+        setBalance(0);
       } else {
         const val = data?.token_balance;
-        setBalance(typeof val === 'number' ? val : DEFAULT_BALANCE);
+        setBalance(typeof val === 'number' ? val : 0);
       }
     } catch (e) {
       console.error('useUserBalance:', e);
-      setBalance(DEFAULT_BALANCE);
+      setBalance(0);
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,7 @@ export function useUserBalance() {
     }
   }, [user?.id, user?.telegram_username]);
 
-  const canAfford = useCallback((cost: number) => balance >= cost && cost >= 0, [balance]);
+  const canAfford = useCallback((cost: number) => !loading && balance >= cost && cost >= 0, [balance, loading]);
 
   return { balance, loading, deduct, canAfford, refetch: fetchBalance, lastDeduct, lastDeductId };
 }

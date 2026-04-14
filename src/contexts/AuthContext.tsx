@@ -171,12 +171,19 @@ async function ensureUserLink(opts: {
 // ---------------------------------------------------------------------------
 async function ensureUsersRow(userId: string, tgUsername?: string, email?: string) {
   const pk = tgUsername || `email:${email}`;
+  const { data: existing } = await supabase
+    .from('users')
+    .select('telegram_username')
+    .eq('telegram_username', pk)
+    .maybeSingle();
+  const isNew = !existing;
   await supabase.from('users').upsert(
     {
       telegram_username: pk,
       user_id: userId,
       email: email || null,
       last_login: new Date().toISOString(),
+      ...(isNew ? { token_balance: 20 } : {}),
     },
     { onConflict: 'telegram_username' }
   );
